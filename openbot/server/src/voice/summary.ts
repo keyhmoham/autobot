@@ -1,15 +1,18 @@
 import type { VoiceTranscriptEntry } from "@openbot/shared/voice-session";
 import { PlanModel } from "../agents/plan-model";
-import type { TitlerOptions } from "../channels/titler";
 import type { RuntimeModel } from "../copilot";
-import { anthropicMessagesUrl, chatCompletionsUrl } from "../routing/model";
+import type { Complete } from "../llm/models";
 
 export type VoiceSummarizer = (
   transcript: readonly VoiceTranscriptEntry[],
 ) => Promise<string>;
 
-type VoiceSummarizerOptions = Omit<TitlerOptions, "model"> & {
+type VoiceSummarizerOptions = {
+  /** For a desktop subscription plan, which answers without the gateway. */
   model: RuntimeModel;
+  /** The chat model's answer, through the model gateway, paid for by the person the call was theirs. */
+  complete: Complete;
+  timeoutMs?: number;
 };
 
 const INSTRUCTION =
@@ -66,64 +69,13 @@ export function createVoiceSummarizer(
       }
     }
 
-    const apiKey = await options.resolveApiKey();
-    if (!apiKey) throw new Error("Voice summary model is not configured.");
-    const anthropic = options.model.provider === "anthropic";
-    const environment = options.environment ?? process.env;
-    const response = await (options.fetchImpl ?? fetch)(
-      anthropic
-        ? anthropicMessagesUrl(environment)
-        : chatCompletionsUrl(environment),
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(anthropic
-            ? { "x-api-key": apiKey, "anthropic-version": "2023-06-01" }
-            : { authorization: `Bearer ${apiKey}` }),
-        },
-        body: JSON.stringify({
-          model: options.model.defaultModel,
-          ...(anthropic
-            ? {
-                system: INSTRUCTION,
-                messages: [{ role: "user", content }],
-                max_tokens: 768,
-              }
-            : {
-                messages: [
-                  { role: "system", content: INSTRUCTION },
-                  { role: "user", content },
-                ],
-                max_completion_tokens: 768,
-              }),
-        }),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 20_000),
-      },
+    return validatedSummary(
+      await options.complete({
+        role: "chat",
+        system: INSTRUCTION,
+        prompt: content,
+        maxTokens: 768,
+      }),
     );
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error(
-        `Voice summary model request failed (${response.status}).`,
-      );
-    }
-    const body: unknown = await response.json();
-    const answer =
-      body && typeof body === "object"
-        ? anthropic
-          ? "content" in body && Array.isArray(body.content)
-            ? body.content
-                .flatMap((part) =>
-                  part?.type === "text" && typeof part.text === "string"
-                    ? [part.text]
-                    : [],
-                )
-                .join("")
-            : undefined
-          : "choices" in body && Array.isArray(body.choices)
-            ? body.choices[0]?.message?.content
-            : undefined
-        : undefined;
-    return validatedSummary(answer);
   };
 }

@@ -5,48 +5,39 @@ import { join } from "node:path";
 import type { RunAgentInput } from "@ag-ui/client";
 import { Hono } from "hono";
 import { runtimeModelForEnvironment } from "../src/copilot";
-import {
-  encryptSecret,
-  type ModelCredentialSecretReader,
-  resolveModelApiKey,
-} from "../src/credentials";
+import type { Complete } from "../src/llm/models";
 import {
   createProviderOAuthProxy,
   type ModelOAuthRecord,
   mountProviderOAuthProxy,
 } from "../src/provider-oauth";
 import { createVoiceSummarizer } from "../src/voice/summary";
+import { gatewayInFrontOf } from "./support/models";
 
 const transcript = [
   { id: "turn-1", role: "user", text: "Plan the launch." },
 ] as const;
 const answer = "Discussed launch planning. Next steps remain open.";
 const packageModel = { provider: "openai", defaultModel: "gpt-test" } as const;
-const encryptionKey = Buffer.alloc(32, 7).toString("base64");
+
+const notThroughTheGateway: Complete = async () => {
+  throw new Error("A plan answers without the model gateway.");
+};
 
 function summarizer(
   environment: Record<string, string | undefined>,
-  reader: ModelCredentialSecretReader = { readModelSecret: async () => null },
+  complete: Complete = notThroughTheGateway,
 ) {
-  const model = runtimeModelForEnvironment(packageModel, environment);
   return createVoiceSummarizer({
-    model,
-    environment,
+    model: runtimeModelForEnvironment(packageModel, environment),
+    complete,
     timeoutMs: 1000,
-    resolveApiKey: () =>
-      resolveModelApiKey({
-        encryptionKey,
-        reader,
-        provider: model.provider,
-        keyId: "primary-model",
-        environment,
-      }),
   });
 }
 
 test.each(["openai", "anthropic"] as const)(
-  "voice summaries use the selected %s API credential and protocol, including rotation",
-  async (provider) => {
+  "voice summaries go through the model gateway in the %s wire format",
+  async (protocol) => {
     const seen: {
       path: string;
       authorization: string | null;
@@ -64,52 +55,42 @@ test.each(["openai", "anthropic"] as const)(
           body: await request.json(),
         });
         return Response.json(
-          provider === "anthropic"
+          protocol === "anthropic"
             ? {
                 content: [
                   { type: "thinking", thinking: "private" },
                   { type: "text", text: answer },
                 ],
+                usage: { input_tokens: 10, output_tokens: 5 },
               }
             : { choices: [{ message: { content: answer } }] },
         );
       },
     });
     try {
-      const environment = {
-        BOT_PROVIDER: provider,
-        BOT_MODEL: "selected-model",
-        OPENAI_BASE_URL: `${server.url.origin}/gateway/v1/`,
-        ANTHROPIC_BASE_URL: `${server.url.origin}/gateway/v1/`,
-        ...(provider === "anthropic"
-          ? { ANTHROPIC_API_KEY: "environment-key" }
-          : { OPENAI_API_KEY: "environment-key" }),
-        VOICE_API_KEY: "must-not-be-used",
-      };
-      let encryptedValue: string | undefined;
-      const summarize = summarizer(environment, {
-        readModelSecret: async (input) => {
-          expect(input).toEqual({ provider, keyId: "primary-model" });
-          return encryptedValue ? { encryptedValue } : null;
-        },
+      const { complete } = gatewayInFrontOf({
+        baseUrl: `${server.url.origin}/vendor/v1`,
+        apiKey: "vendor-key",
+        name: "selected-model",
+        upstream: "vendor-model",
+        protocol,
       });
-      expect(await summarize(transcript)).toBe(answer);
-      encryptedValue = await encryptSecret(encryptionKey, "rotated-stored-key");
-      expect(await summarize(transcript)).toBe(answer);
-      expect(seen).toHaveLength(2);
-      for (const [index, request] of seen.entries()) {
-        const key = index === 0 ? "environment-key" : "rotated-stored-key";
-        expect(request.path).toBe(
-          `/gateway/v1/${provider === "anthropic" ? "messages" : "chat/completions"}`,
-        );
-        expect(request.authorization).toBe(
-          provider === "anthropic" ? null : `Bearer ${key}`,
-        );
-        expect(request.apiKey).toBe(provider === "anthropic" ? key : null);
-        expect(request.body).toMatchObject({ model: "selected-model" });
-        expect(JSON.stringify(request.body)).toContain("untrusted");
-        expect(JSON.stringify(request.body)).toContain("Plan the launch.");
-      }
+      expect(await summarizer({}, complete)(transcript)).toBe(answer);
+      expect(seen).toHaveLength(1);
+      const [request] = seen;
+      expect(request?.path).toBe(
+        `/vendor/v1/${protocol === "anthropic" ? "messages" : "chat/completions"}`,
+      );
+      // The vendor sees the administrator's key and its own name for the model, never the token.
+      expect(request?.authorization).toBe(
+        protocol === "anthropic" ? null : "Bearer vendor-key",
+      );
+      expect(request?.apiKey).toBe(
+        protocol === "anthropic" ? "vendor-key" : null,
+      );
+      expect(request?.body).toMatchObject({ model: "vendor-model" });
+      expect(JSON.stringify(request?.body)).toContain("untrusted");
+      expect(JSON.stringify(request?.body)).toContain("Plan the launch.");
     } finally {
       await server.stop(true);
     }
@@ -156,24 +137,17 @@ test.each(["claude", "chatgpt"] as const)(
       },
     });
     try {
-      const summarize = summarizer(
-        {
-          ...(provider === "claude"
-            ? { CLAUDE_CODE_OAUTH_TOKEN: "synthetic-plan-token" }
-            : { CHATGPT_AUTH_FILE: "/synthetic/auth.json" }),
-          PICKED_HARNESS_IMAGE:
-            provider === "claude"
-              ? "agent-claude-sdk:test"
-              : "agent-langgraph-agui:test",
-          PICKED_HARNESS_URL: server.url.origin,
-          MANAGED_AGENT_TOKEN: "owned-harness-token",
-        },
-        {
-          readModelSecret: async () => {
-            throw new Error("Plan summaries must not look for an API key");
-          },
-        },
-      );
+      const summarize = summarizer({
+        ...(provider === "claude"
+          ? { CLAUDE_CODE_OAUTH_TOKEN: "synthetic-plan-token" }
+          : { CHATGPT_AUTH_FILE: "/synthetic/auth.json" }),
+        PICKED_HARNESS_IMAGE:
+          provider === "claude"
+            ? "agent-claude-sdk:test"
+            : "agent-langgraph-agui:test",
+        PICKED_HARNESS_URL: server.url.origin,
+        MANAGED_AGENT_TOKEN: "owned-harness-token",
+      });
       expect(await summarize(transcript)).toBe(answer);
       expect(await summarize(transcript)).toBe(answer);
       expect(requests).toHaveLength(2);
@@ -250,14 +224,16 @@ test.each(["google", "xai"] as const)(
         }),
       );
       server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: app.fetch });
-      const environment = {
-        BOT_PROVIDER: "openai",
-        BOT_MODEL: "selected-model",
-        OPENAI_BASE_URL: `${server.url.origin}/api/model-provider/v1`,
-        OPENAI_API_KEY: record.proxyToken,
-        OPENBOT_MODEL_OAUTH_FILE: file,
-      };
-      expect(await summarizer(environment)(transcript)).toBe(answer);
+      // The desktop's local OAuth proxy is an OpenAI-compatible provider like any other.
+      const viaProxy = (key: string) =>
+        gatewayInFrontOf({
+          baseUrl: `${server?.url.origin}/api/model-provider/v1`,
+          apiKey: key,
+          name: "selected-model",
+        }).complete;
+      expect(
+        await summarizer({}, viaProxy(record.proxyToken))(transcript),
+      ).toBe(answer);
       expect(received).toHaveLength(1);
       expect(received[0]?.authorization).toBe(`Bearer ${record.accessToken}`);
       expect(new URL(received[0]?.url ?? "").pathname).toBe(
@@ -271,9 +247,7 @@ test.each(["google", "xai"] as const)(
         record.proxyToken,
       );
       await expect(
-        summarizer({ ...environment, OPENAI_API_KEY: "wrong-proxy-token" })(
-          transcript,
-        ),
+        summarizer({}, viaProxy("wrong-proxy-token"))(transcript),
       ).rejects.toThrow("401");
       expect(received).toHaveLength(1);
     } finally {

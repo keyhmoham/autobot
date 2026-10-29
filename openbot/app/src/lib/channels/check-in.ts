@@ -1,5 +1,5 @@
-import { createContext } from "react";
 import type { CheckIn } from "@openbot/shared/check-in";
+import { createContext } from "react";
 
 /**
  * The check-in frame's reader, re-exported from the one place it is declared, as

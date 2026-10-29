@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { useInPageChrome, usePageChrome } from "@/components/shell/page-chrome";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +26,6 @@ import {
   type SandboxedRecord,
   sandboxedListQueryOptions,
 } from "@/lib/sandboxed/queries";
-import { useInPageChrome, usePageChrome } from "@/components/shell/page-chrome";
 import { cn } from "@/lib/utils";
 
 /**

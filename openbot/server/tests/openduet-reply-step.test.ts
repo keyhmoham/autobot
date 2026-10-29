@@ -9,6 +9,7 @@ import { z } from "zod";
 import { currentApprovalContext } from "../src/approvals/types";
 import { buildAgents } from "../src/copilot";
 import { REPLIES_TOOL, replyTools } from "../src/openduet/replies";
+import { modelsFromEnvironment } from "./support/models";
 
 /*
  * Reply chips as a real built-in run makes them: the CopilotKit agent, the AI SDK's own step loop,
@@ -103,7 +104,10 @@ async function turn(
       },
     ],
     { provider: "openai", defaultModel: "gpt-test" },
-    "synthetic-model-key",
+    modelsFromEnvironment(
+      { provider: "openai", defaultModel: "gpt-test" },
+      "synthetic-model-key",
+    ),
     undefined,
     async () => [
       read,

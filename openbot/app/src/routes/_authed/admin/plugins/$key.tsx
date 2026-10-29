@@ -56,6 +56,13 @@ import {
   removePluginServerMutationOptions,
 } from "@/lib/plugins/mutations";
 import {
+  brokeredConnectionDescription,
+  brokeredDisconnectNote,
+  brokeredPerActionTrip,
+  brokeredProvenance,
+  brokeredReach,
+} from "@/lib/plugins/provider-vocabulary";
+import {
   type CatalogueItem,
   connectionsQueryOptions,
   type PluginServer,
@@ -63,13 +70,6 @@ import {
   pluginsPageQueryOptions,
   pluginsProvider,
 } from "@/lib/plugins/queries";
-import {
-  brokeredConnectionDescription,
-  brokeredDisconnectNote,
-  brokeredPerActionTrip,
-  brokeredProvenance,
-  brokeredReach,
-} from "@/lib/plugins/provider-vocabulary";
 import {
   botSharedAppsQueryOptions,
   describeApproval,

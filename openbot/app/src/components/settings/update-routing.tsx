@@ -1,5 +1,4 @@
 import { IconRoute } from "@tabler/icons-react";
-import { appConfig } from "@/lib/generated/application-config";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { PageRows, PageSection } from "@/components/layout/page-shell";
@@ -14,12 +13,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { setUpdateRoutingMutationOptions } from "@/lib/bot-lifecycle/mutations";
-import { deliveryQueryOptions } from "@/lib/delivery";
 import {
   type UpdateKind,
   type UpdateTransport,
   updateRoutingQueryOptions,
 } from "@/lib/bot-lifecycle/queries";
+import { deliveryQueryOptions } from "@/lib/delivery";
+import { appConfig } from "@/lib/generated/application-config";
 import { queryClient } from "@/query-client";
 
 const KIND_LABEL: Record<UpdateKind, { title: string; description: string }> = {

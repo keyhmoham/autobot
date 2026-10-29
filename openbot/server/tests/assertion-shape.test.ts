@@ -758,14 +758,14 @@ const ALLOW: Allowed[] = [
   },
   {
     file: "server/tests/picked-harness-auth.test.ts",
-    line: 290,
+    line: 291,
     shape: "b",
     finding: "NEW (round 2 did not find this)",
     why: 'test("a plan\'s installed picked harness authenticates without advertising a bundled Bot", async () => { const ',
   },
   {
     file: "server/tests/picked-harness-auth.test.ts",
-    line: 355,
+    line: 356,
     shape: "b",
     finding: "NEW (round 2 did not find this)",
     why: "expect(result.config.managedAgent?.endpoint).toBeUndefined();",

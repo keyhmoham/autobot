@@ -8,6 +8,7 @@ import {
 } from "../src/learning/runtime";
 import { createLearningSettingsStore } from "../src/learning/settings";
 import { skillSnapshot } from "./fixtures/learned-skills";
+import { modelsFromEnvironment } from "./support/models";
 
 function agents(
   acquire: AcquireLearnedSkills,
@@ -23,7 +24,7 @@ function agents(
       },
     ],
     model,
-    "synthetic-model-key",
+    modelsFromEnvironment(model, "synthetic-model-key"),
     undefined,
     undefined,
     undefined,

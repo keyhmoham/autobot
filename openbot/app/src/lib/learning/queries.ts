@@ -1,11 +1,11 @@
-import { queryOptions } from "@tanstack/react-query";
-import { client } from "@/lib/client";
 import type {
   LearningAutoAssignState,
   LearningDeliveryStatus,
   LearningOverview,
   LearningSettings,
 } from "@openbot/shared/learning";
+import { queryOptions } from "@tanstack/react-query";
+import { client } from "@/lib/client";
 
 export const learningKeys = {
   all: ["learning"] as const,

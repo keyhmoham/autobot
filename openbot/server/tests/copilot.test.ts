@@ -12,7 +12,7 @@ import { z } from "zod";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import { MAX_INLINED_BYTES_PER_RUN } from "../src/channels/attachment-parts";
 import { loadConfig } from "../src/config";
-import type { LoadAttachment } from "../src/copilot";
+import type { BotModelSource, LoadAttachment } from "../src/copilot";
 import {
   buildAgents,
   builtInAgentConfiguration,
@@ -27,6 +27,11 @@ import { grantedToolGuidance } from "../src/plugins/tools";
 import { loadTenantPackage } from "../src/tenant-package";
 import { UNTRUSTED_GUIDANCE } from "../src/untrusted-content";
 import { testEnvironment } from "./support/environment";
+import {
+  modelFromEnvironment,
+  modelsFromEnvironment,
+  noModel,
+} from "./support/models";
 
 /**
  * The Bot under test, or a failure that says it was never built.
@@ -88,7 +93,7 @@ test("remote runs receive coordination tools and preserve the signed delivery sc
         },
       ],
       { provider: "openai", defaultModel: "test" },
-      null,
+      noModel,
     ];
     args[5] = (_bot, _run, _thread, previous) =>
       typeof previous === "string" ? previous : "new-run";
@@ -164,7 +169,7 @@ describe("deployment model selection", () => {
           },
         ],
         model,
-        async () => "synthetic-model-key",
+        modelsFromEnvironment(model, "synthetic-model-key"),
       );
       const agent = agents["general-assistant"]?.clone();
       if (!agent) throw new Error("Expected General Assistant.");
@@ -302,7 +307,11 @@ describe("registered Copilot agents", () => {
     ).toMatchObject({ endpoint: "https://risk.internal:443/ag-ui" });
   });
 
-  test("configures an OpenAI built-in agent", () => {
+  test("configures a built-in agent on the model it was handed", () => {
+    const thinksWith = modelFromEnvironment(
+      { provider: "openai", defaultModel: "gpt-5.6-terra" },
+      "openai-secret",
+    );
     expect(
       builtInAgentConfiguration(
         {
@@ -312,14 +321,13 @@ describe("registered Copilot agents", () => {
           systemPrompt: "Be helpful.",
         },
         { provider: "openai", defaultModel: "gpt-5.6-terra" },
-        "openai-secret",
+        thinksWith,
       ),
-    ).toEqual({
-      model: "openai/gpt-5.6-terra",
+    ).toMatchObject({
+      model: thinksWith,
       // The provenance rule is unconditional, so even a Bot with no tools and no computer carries
       // it. That Bot needs it most: nothing it says was read anywhere.
       prompt: `Be helpful.\n\n${PROVENANCE_GUIDANCE}\n\n${UNTRUSTED_GUIDANCE}`,
-      apiKey: "openai-secret",
     });
   });
 
@@ -334,7 +342,7 @@ describe("registered Copilot agents", () => {
         },
       ],
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      null,
+      noModel,
     );
     const agent = agents["general-assistant"];
     if (!agent) {
@@ -350,12 +358,12 @@ describe("registered Copilot agents", () => {
             lifecycleError = error;
           },
         }),
-      ).rejects.toThrow("Add the package credential or set OPENAI_API_KEY");
+      ).rejects.toThrow("chooses the model Bots use in Admin → Models");
     } finally {
       consoleError.mockRestore();
     }
     expect(lifecycleError?.message).toContain(
-      "Add the package credential or set OPENAI_API_KEY",
+      "chooses the model Bots use in Admin → Models",
     );
   });
 
@@ -376,7 +384,10 @@ describe("registered Copilot agents", () => {
         },
       ],
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      "openai-secret",
+      modelsFromEnvironment(
+        { provider: "openai", defaultModel: "gpt-5.6-terra" },
+        "openai-secret",
+      ),
     );
 
     expect(agents["general-assistant"]).toBeInstanceOf(BuiltInAgent);
@@ -417,7 +428,10 @@ describe("registered Copilot agents", () => {
         },
       ],
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      "openai-secret",
+      modelsFromEnvironment(
+        { provider: "openai", defaultModel: "gpt-5.6-terra" },
+        "openai-secret",
+      ),
       stallGuard,
     );
 
@@ -449,7 +463,7 @@ describe("registered Copilot agents", () => {
       await buildAgents(
         registered,
         model,
-        null,
+        noModel,
         undefined,
         undefined,
         undefined,
@@ -468,7 +482,7 @@ describe("registered Copilot agents", () => {
       await buildAgents(
         registered,
         model,
-        null,
+        noModel,
         {
           watch: (_bot: { id: string; name: string }, inner?: unknown) => {
             handed = inner;
@@ -508,7 +522,7 @@ describe("registered Copilot agents", () => {
         },
       ],
       { provider: "openai" as const, defaultModel: "gpt-4.1" },
-      async () => null,
+      noModel,
       undefined,
       undefined,
       undefined,
@@ -546,18 +560,18 @@ describe("registered Copilot agents", () => {
     };
 
     const guarded = (
-      await buildAgents(registered, model, null, {
+      await buildAgents(registered, model, noModel, {
         watch: () => sentinel,
         stop: () => undefined,
       })
     ).risk;
-    const unguarded = (await buildAgents(registered, model, null)).risk;
+    const unguarded = (await buildAgents(registered, model, noModel)).risk;
 
     expect(expectWrappedHttpTransport(guarded).fetch).toBe(sentinel);
     expect(expectWrappedHttpTransport(unguarded).fetch).not.toBe(sentinel);
   });
 
-  test("resolves fresh built-in agents and credentials for every request", async () => {
+  test("resolves fresh built-in agents and their models for every request", async () => {
     const registered = [
       {
         id: "general-assistant",
@@ -567,20 +581,25 @@ describe("registered Copilot agents", () => {
       },
     ];
     let resolutionCount = 0;
-    const resolveModelApiKey = async () => {
+    const models: BotModelSource = async () => {
       resolutionCount += 1;
-      return resolutionCount === 1 ? "first-secret" : null;
+      return resolutionCount === 1
+        ? modelFromEnvironment({
+            provider: "openai",
+            defaultModel: "gpt-5.6-terra",
+          })
+        : null;
     };
 
     const first = await resolveRuntimeAgents(
       async () => registered,
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      resolveModelApiKey,
+      models,
     );
     const second = await resolveRuntimeAgents(
       async () => registered,
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      resolveModelApiKey,
+      models,
     );
 
     expect(first["general-assistant"]).not.toBe(second["general-assistant"]);
@@ -588,14 +607,14 @@ describe("registered Copilot agents", () => {
     const consoleError = spyOn(console, "error").mockImplementation(() => {});
     try {
       await expect(second["general-assistant"]?.runAgent()).rejects.toThrow(
-        "Add the package credential or set OPENAI_API_KEY",
+        "has no model to think with",
       );
     } finally {
       consoleError.mockRestore();
     }
   });
 
-  test("does not resolve model credentials for remote-only agents", async () => {
+  test("does not resolve a model for remote-only agents", async () => {
     let resolverInvoked = false;
     const agents = await resolveRuntimeAgents(
       async () => [
@@ -609,7 +628,7 @@ describe("registered Copilot agents", () => {
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
       async () => {
         resolverInvoked = true;
-        throw new Error("corrupt model credential");
+        throw new Error("model gateway unavailable");
       },
     );
 
@@ -654,7 +673,7 @@ describe("standing agent roles", () => {
     const agents = await buildAgents(
       [remoteAgent(endpoint.url)],
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      null,
+      noModel,
     );
 
     const agent = agents.agent_expense;
@@ -678,7 +697,7 @@ describe("standing agent roles", () => {
     const agents = await buildAgents(
       [remoteAgent(endpoint.url)],
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      null,
+      noModel,
     );
 
     const agent = agents.agent_expense;
@@ -791,7 +810,7 @@ describe("standing agent roles", () => {
           return [remoteAgent("http://coworker.internal/ag-ui")];
         },
         model: { provider: "openai", defaultModel: "gpt-5.6-terra" },
-        resolveModelApiKey: async () => null,
+        modelsForActor: () => noModel,
       }),
     );
 
@@ -826,7 +845,7 @@ describe("standing agent roles", () => {
           remoteAgent(endpoint.url, { roleDescription }),
         ],
         model: { provider: "openai", defaultModel: "gpt-5.6-terra" },
-        resolveModelApiKey: async () => null,
+        modelsForActor: () => noModel,
       }),
     );
     const request = new Request("http://openbot.test/api/copilotkit");
@@ -889,7 +908,10 @@ describe("connected-vendor lookup diagnostics", () => {
         },
       ],
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      "synthetic-model-key",
+      modelsFromEnvironment(
+        { provider: "openai", defaultModel: "gpt-5.6-terra" },
+        "synthetic-model-key",
+      ),
       undefined,
       undefined,
       undefined,
@@ -1131,7 +1153,10 @@ describe("what a Bot is told it holds", () => {
         systemPrompt: "Investigate policies.",
       },
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      "openai-secret",
+      modelFromEnvironment(
+        { provider: "openai", defaultModel: "gpt-5.6-terra" },
+        "openai-secret",
+      ),
       drive,
       "BROWSER GUIDANCE HERE",
     ).prompt as string;
@@ -1171,7 +1196,10 @@ describe("where a Bot says its answer came from", () => {
         systemPrompt: "Be helpful.",
       },
       { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      "openai-secret",
+      modelFromEnvironment(
+        { provider: "openai", defaultModel: "gpt-5.6-terra" },
+        "openai-secret",
+      ),
     ).prompt as string;
 
     expect(prompt).toContain(PROVENANCE_GUIDANCE);
@@ -1247,7 +1275,7 @@ describe("a person's standing instructions", () => {
     builtInAgentConfiguration(
       assistant,
       model,
-      "openai-secret",
+      modelFromEnvironment(model, "openai-secret"),
       [],
       undefined,
       [],
@@ -1275,7 +1303,7 @@ describe("a person's standing instructions", () => {
     const prompt = builtInAgentConfiguration(
       assistant,
       model,
-      "openai-secret",
+      modelFromEnvironment(model, "openai-secret"),
       [{ name: "mcp__google-drive__search_files" }] as never[],
       "Computer guidance.",
       [],
@@ -1322,7 +1350,7 @@ describe("a person's standing instructions", () => {
         { ...assistant, id: "second-assistant", name: "Second Assistant" },
       ],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -1346,7 +1374,7 @@ describe("a person's standing instructions", () => {
         },
       ],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -1394,7 +1422,7 @@ describe("a person's standing instructions", () => {
           },
         ],
         model,
-        "synthetic-model-key",
+        modelsFromEnvironment(model, "synthetic-model-key"),
         undefined,
         undefined,
         undefined,
@@ -1503,7 +1531,7 @@ describe("a person's standing instructions", () => {
           },
         ],
         model,
-        null,
+        noModel,
         undefined,
         undefined,
         undefined,
@@ -1535,7 +1563,7 @@ describe("a person's standing instructions", () => {
       createActorAgentResolver({
         loadAgents: async () => [assistant],
         model,
-        resolveModelApiKey: async () => "openai-secret",
+        modelsForActor: () => modelsFromEnvironment(model),
         loadInstructionsForActor: (actorId) => async () => {
           asked.push(actorId);
           return "Write in British English.";
@@ -1631,7 +1659,11 @@ describe("a chat turn is not sent a conversation the model API refuses", () => {
    * to the suite's timeout.
    */
   async function builtIn() {
-    const agents = await buildAgents([assistant], model, "openai-secret");
+    const agents = await buildAgents(
+      [assistant],
+      model,
+      modelsFromEnvironment(model, "openai-secret"),
+    );
     const agent = agents["general-assistant"];
     if (!agent) throw new Error('buildAgents returned no "general-assistant"');
     return agent;
@@ -1726,7 +1758,7 @@ describe("a chat turn is not sent a conversation the model API refuses", () => {
         },
       ],
       model,
-      null,
+      noModel,
     );
 
     // `built`, not `agents.risk` with an optional chain. On an undefined agent the chained form
@@ -1764,7 +1796,7 @@ describe("a chat turn is not sent a conversation the model API refuses", () => {
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       async () => granted,
       undefined,
@@ -1941,7 +1973,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -1976,7 +2008,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
         },
       ],
       model,
-      null,
+      noModel,
       undefined,
       undefined,
       undefined,
@@ -2045,7 +2077,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       async () => granted,
       undefined,
@@ -2112,7 +2144,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -2190,7 +2222,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -2239,7 +2271,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -2345,7 +2377,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -2403,7 +2435,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,
@@ -2453,7 +2485,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
     const agents = await buildAgents(
       [assistant],
       model,
-      "openai-secret",
+      modelsFromEnvironment(model, "openai-secret"),
       undefined,
       undefined,
       undefined,

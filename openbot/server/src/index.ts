@@ -129,6 +129,7 @@ import {
 import { createSnapshotStore } from "./computer/snapshot-store";
 import { loadConfig } from "./config";
 import {
+  type BotLanguageModel,
   type IdentifyActor,
   type IdentifyUser,
   mountCopilotRuntime,
@@ -143,6 +144,7 @@ import {
 } from "./credentials";
 import { createDatabase } from "./db/client";
 import {
+  agents,
   brokeredConnections,
   channelAgents,
   channelMemberships,
@@ -188,12 +190,18 @@ import {
 } from "./learning/ensure-container";
 import { clearLearningRevisionFallback } from "./learning/runtime";
 import { createLearningSettingsStore } from "./learning/settings";
+import { createLlmAdminRoutes } from "./llm/admin-routes";
+import { seedModelsFromEnvironment } from "./llm/bootstrap";
+import { createModelGateway } from "./llm/gateway";
+import { createGatewayModels, NoModelError } from "./llm/models";
+import { createLlmRegistry } from "./llm/registry";
+import { createGatewayTokens } from "./llm/tokens";
 import { createMemoryDefaults } from "./memory/defaults";
 import { createMemoryIngestion } from "./memory/ingestion";
 import { createIntelligenceMemory } from "./memory/intelligence";
 import { createMemoryStore } from "./memory/store";
 import { memoryTools } from "./memory/tools";
-import { reportModelAvailability } from "./model-availability-check";
+import { checkChosenModel } from "./model-availability-check";
 import {
   createChannelHello,
   createDuetChannelStore,
@@ -203,7 +211,7 @@ import { createPageStore } from "./openduet/pages";
 import { withRunChannels } from "./openduet/run-channel";
 import {
   createSetupSources,
-  modelKeyOf,
+  modelSourceOf,
   primaryBotIdOf,
 } from "./openduet/setup";
 import { createTaskReplyContext } from "./openduet/task-reply-context";
@@ -284,7 +292,6 @@ import { createServerResponsibilityEngine } from "./responsibilities/wiring";
 import { createRoutineRunner } from "./routines/runner";
 import { createRoutineStore } from "./routines/store";
 import { createIntentRouter } from "./routing/classify";
-import { createModelCompleter } from "./routing/model";
 import { createSelfHostBanner } from "./self-host-banner";
 import { createTeamBots } from "./team-bots/team-bots";
 import {
@@ -716,23 +723,65 @@ const storedApprovals = createApprovalStore(database);
 normalizeModelBaseUrls();
 const runtimeModel = runtimeModelForEnvironment(tenantPackage.model);
 
-/**
- * Pass one of tool selection: which skills a message needs, on the deployment's own model.
- *
- * Built once rather than per request, because it holds nothing about a person: the key is resolved
- * on every call, so a credential rotated a moment ago is used by the next run.
+/*
+ * The model gateway: the one way anything in this deployment reaches a model. Providers, models,
+ * prices and roles are an administrator's (Admin → Models); keys live in the vault; every call is
+ * metered against whose run it is. See llm/gateway.ts.
  */
-const chooseSkills = createModelCompleter({
-  model: runtimeModel,
-  resolveApiKey: () =>
+const llmRegistry = createLlmRegistry({
+  database,
+  encryptionKey: config.keyEncryptionKey,
+});
+const gatewayTokens = createGatewayTokens({
+  encryptionKey: config.keyEncryptionKey,
+  ...(process.env.LLM_GATEWAY_KEY?.trim()
+    ? { deploymentKey: process.env.LLM_GATEWAY_KEY.trim() }
+    : {}),
+});
+const modelGateway = createModelGateway({
+  database,
+  registry: llmRegistry,
+  tokens: gatewayTokens,
+});
+const gatewayModels = createGatewayModels({
+  gateway: modelGateway,
+  registry: llmRegistry,
+  tokens: gatewayTokens,
+});
+// A deployment that ran on one key before the gateway keeps running on it: see llm/bootstrap.ts.
+await seedModelsFromEnvironment({
+  registry: llmRegistry,
+  packageModel: tenantPackage.model,
+  resolveKey: (provider) =>
     resolveModelApiKey({
       encryptionKey: config.keyEncryptionKey,
       reader: credentialStore,
-      provider: runtimeModel.provider,
+      provider,
       keyId: tenantPackage.model.credentialSecretRef,
       environment: process.env,
     }),
-});
+  environment: process.env,
+}).catch((error: unknown) =>
+  console.error(
+    JSON.stringify({
+      type: "model-seed-failed",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  ),
+);
+
+/**
+ * The deployment's own short decisions, on the decision role's model (the chat model when none is
+ * chosen): pass one of tool selection, routing a message, titling a conversation.
+ */
+const decide = (prompt: string, signal?: AbortSignal) =>
+  gatewayModels.complete({
+    role: "decision",
+    prompt,
+    json: true,
+    ...(signal ? { signal } : {}),
+  });
+const chooseSkills = decide;
 
 /*
  * The pair a headless turn is driven through, built ONCE.
@@ -1279,60 +1328,72 @@ const stallGuard = createStallGuard({
   auditStore: bootAuditStore,
 });
 
-const intentRouter = createIntentRouter({
-  complete: createModelCompleter({
-    model: runtimeModel,
-    resolveApiKey: () =>
-      resolveModelApiKey({
-        encryptionKey: config.keyEncryptionKey,
-        reader: credentialStore,
-        provider: runtimeModel.provider,
-        keyId: tenantPackage.model.credentialSecretRef,
-        environment: process.env,
-      }),
-  }),
-});
+const intentRouter = createIntentRouter({ complete: decide });
 
-// Said once at boot: whether the key can call the model the Bots run on. A key without access to it
-// otherwise passes every start-up check and fails at the first message, in front of whoever sent it.
-// Kept, with a stamp naming the key it asked about, so the setup checklist can repeat the answer
-// for that key and say "not checked yet" for any other. The checklist's "Check again" asks again
-// through the same function. Never rejects: a failed read reads as not checked.
+/**
+ * The chat role's model and its provider, and a stamp naming both and the key the provider holds now,
+ * so the setup checklist can tell a check about this model from one about a model chosen since.
+ */
+const describeChatModel = async () => {
+  const name = await llmRegistry.modelForRole("chat");
+  const model = name ? await llmRegistry.resolve(name) : null;
+  if (!model) return null;
+  const provider = (await llmRegistry.providers()).find(
+    (row) => row.id === model.providerId,
+  );
+  return {
+    model: model.upstream,
+    provider: provider?.name ?? model.providerKind,
+    stamp: `${model.modelId}:${model.keyId ?? "no-key"}`,
+  };
+};
+
+// Said once at boot: whether the chosen model can be called with its provider's key. A key without
+// access to it otherwise passes every start-up check and fails at the first message, in front of
+// whoever sent it. Kept with a stamp naming what it asked about, so the setup checklist repeats the
+// answer for that model and says "not checked yet" for any other. Never rejects.
 const checkModelAvailability = () =>
-  reportModelAvailability({
-    provider: runtimeModel.provider,
-    model: runtimeModel.defaultModel,
-    apiKey: () =>
-      resolveModelApiKey({
-        encryptionKey: config.keyEncryptionKey,
-        reader: credentialStore,
-        provider: runtimeModel.provider,
-        keyId: tenantPackage.model.credentialSecretRef,
-        environment: process.env,
-      }),
-  });
+  checkChosenModel({ registry: llmRegistry });
 const modelCheckAtBoot = (async () => {
-  const { stamp } = await modelKeyOf({
+  const { stamp } = await modelSourceOf({
     plan: Boolean(runtimeModel.plan),
-    provider: runtimeModel.provider,
-    keyId: tenantPackage.model.credentialSecretRef,
-    credentials: credentialStore,
-    environment: process.env,
+    describe: describeChatModel,
   });
   return { outcome: await checkModelAvailability(), stamp };
 })().catch(() => undefined);
 
-// Named collaborators are bound once in actorAgentResolver for chat, hops, and headless turns.
-
-/** The deployment's model key, resolved per call so a credential rotated a moment ago is used next. */
-const resolveRuntimeModelApiKey = () =>
-  resolveModelApiKey({
-    encryptionKey: config.keyEncryptionKey,
-    reader: credentialStore,
-    provider: runtimeModel.provider,
-    keyId: tenantPackage.model.credentialSecretRef,
-    environment: process.env,
-  });
+/**
+ * The model each built-in Bot thinks with, for one person: the Bot's own choice when its
+ * configuration names a model, the chat role's otherwise, through the gateway on a token naming the
+ * person as the payer. Null, with the reason logged, when nothing is set up.
+ */
+const modelsForActor =
+  (actorId: string) =>
+  async (botId: string): Promise<BotLanguageModel | null> => {
+    try {
+      const [row] = await database
+        .select({ configuration: agents.configuration })
+        .from(agents)
+        .where(eq(agents.id, botId))
+        .limit(1);
+      const chosen = (row?.configuration as { model?: unknown } | undefined)
+        ?.model;
+      return await gatewayModels.languageModel(
+        { payerUserId: actorId, agentId: botId },
+        typeof chosen === "string" && chosen ? chosen : null,
+      );
+    } catch (error) {
+      if (!(error instanceof NoModelError)) throw error;
+      console.warn(
+        JSON.stringify({
+          type: "bot-has-no-model",
+          botId,
+          reason: error.message,
+        }),
+      );
+      return null;
+    }
+  };
 
 const hostAccessBroker = createHostAccessBroker(Date.now, {
   approvalGate: approvalService.gate,
@@ -1827,7 +1888,7 @@ const routineRunner = createRoutineRunner({
 const baseAgentResolver = createActorAgentResolver({
   loadAgents: loadAgentsForActor,
   model: runtimeModel,
-  resolveModelApiKey: resolveRuntimeModelApiKey,
+  modelsForActor,
   stallGuard,
   loadToolsForActor: (actorId, initiator) =>
     restrictToolsForRun(
@@ -2488,10 +2549,7 @@ const channelSummaries = {
   database,
   queue: createWorkQueue(database),
   transcript: routineIntelligence,
-  title: createChannelTitler({
-    model: runtimeModel.defaultModel,
-    resolveApiKey: resolveRuntimeModelApiKey,
-  }),
+  title: createChannelTitler({ complete: gatewayModels.complete }),
   owner: workOwner("summariser"),
 };
 repeatAfterEach(async () => {
@@ -2528,7 +2586,8 @@ await installEnterpriseControls({
   ...(computerProvider ? { provider: computerProvider } : {}),
   ...(config.computer?.token ? { computerToken: config.computer.token } : {}),
   ...(config.webBotAuth ? { webBotAuth: config.webBotAuth } : {}),
-  builtInModel: `${runtimeModel.provider}/${runtimeModel.defaultModel}`,
+  builtInModel: async () =>
+    (await llmRegistry.modelForRole("chat")) ?? undefined,
   people: peopleStore,
   initialAdminEmails: config.auth?.initialAdminEmails ?? [],
 });
@@ -2688,7 +2747,7 @@ const app = createApp(
     store: createVoiceSessionStore(database, channelStore),
     summarize: createVoiceSummarizer({
       model: runtimeModel,
-      resolveApiKey: resolveRuntimeModelApiKey,
+      complete: gatewayModels.complete,
     }),
     channels: channelStore,
   },
@@ -2741,15 +2800,11 @@ const app = createApp(
       setup: createSetupSources({
         productName: tenantPackage.productName,
         config,
-        environment: process.env,
         model: {
-          provider: runtimeModel.provider,
-          keyId: tenantPackage.model.credentialSecretRef,
-          defaultModel: runtimeModel.defaultModel,
           plan: Boolean(runtimeModel.plan),
+          describe: describeChatModel,
           check: checkModelAvailability,
         },
-        credentials: credentialStore,
         modelCheckAtBoot,
         entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
         plugins: pluginStore,
@@ -2803,6 +2858,17 @@ const app = createApp(
   identityStore,
   identityGithubCallback,
   [
+    // The model gateway answers model calls with its own tokens, never a person's session.
+    () => [{ path: "/", routes: modelGateway.routes }],
+    (requireUser) => [
+      {
+        path: "/api/admin/llm",
+        routes: createLlmAdminRoutes(
+          { registry: llmRegistry, database },
+          requireUser,
+        ),
+      },
+    ],
     (requireUser) =>
       createWorkspaceRoutes(
         {

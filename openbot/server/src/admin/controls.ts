@@ -81,8 +81,8 @@ export type EnterpriseDeps = {
   computerToken?: string;
   /** Pushed to every computer with its policy; see `computer/policy-network.ts`. */
   webBotAuth?: WebBotAuth;
-  /** `provider/model` the built-in Bot runs on, for the model allowlist and usage view. */
-  builtInModel?: string;
+  /** The model built-in Bots think with now: the gateway's chat role, read when asked. */
+  builtInModel?: () => Promise<string | undefined>;
   /** Offboarding: ends sessions and deny-lists, and retires what a person granted. */
   people?: {
     revoke: (userId: string, by: string) => Promise<void>;
@@ -923,7 +923,9 @@ export async function headlessTurnRefusal(input: {
       .where(eq(agents.id, input.agentId))
       .limit(1);
     const model =
-      row?.type === "built_in" ? controls.deps.builtInModel : undefined;
+      row?.type === "built_in"
+        ? await controls.deps.builtInModel?.()
+        : undefined;
     if (!model || allowlist.models.includes(model)) return null;
     await controls.store
       .recordModelUsage({

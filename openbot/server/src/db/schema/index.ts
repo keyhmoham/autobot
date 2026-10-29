@@ -13,6 +13,7 @@ export * from "./demonstrations";
 export * from "./identity";
 export * from "./learning";
 export * from "./lifecycle";
+export * from "./llm";
 export * from "./memory";
 export * from "./openduet";
 export * from "./passwords";

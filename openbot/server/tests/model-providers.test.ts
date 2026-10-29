@@ -7,11 +7,8 @@ import {
   runtimeModelForEnvironment,
 } from "../src/copilot";
 import { encryptSecret, resolveModelApiKey } from "../src/credentials";
-import {
-  anthropicMessagesUrl,
-  createModelCompleter,
-} from "../src/routing/model";
 import { validateTenantPackage } from "../src/tenant-package";
+import { modelFromEnvironment, modelsFromEnvironment } from "./support/models";
 
 const encryptionKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const originalEnvironment = {
@@ -58,23 +55,8 @@ describe("deployment API-key provider selection", () => {
       const environment = { ANTHROPIC_BASE_URL: base };
       normalizeModelBaseUrls(environment);
       expect(environment.ANTHROPIC_BASE_URL).toBe(expected);
-      expect(anthropicMessagesUrl(environment)).toBe(`${expected}/messages`);
       normalizeModelBaseUrls(environment);
       expect(environment.ANTHROPIC_BASE_URL).toBe(expected);
-    }
-    for (const value of [undefined, "", "  "]) {
-      expect(anthropicMessagesUrl({ ANTHROPIC_BASE_URL: value })).toBe(
-        "https://api.anthropic.com/v1/messages",
-      );
-    }
-    for (const value of [
-      "https://gateway.example",
-      "https://gateway.example/v1",
-      " https://gateway.example/v1/ ",
-    ]) {
-      expect(anthropicMessagesUrl({ ANTHROPIC_BASE_URL: value })).toBe(
-        "https://gateway.example/v1/messages",
-      );
     }
   });
 
@@ -265,7 +247,7 @@ test.each([
             },
           ],
           model,
-          resolve,
+          async () => modelFromEnvironment(model, (await resolve()) ?? ""),
           undefined,
           async () => [
             {
@@ -375,7 +357,7 @@ test.each([
           },
         ],
         model,
-        async () => "synthetic-key",
+        modelsFromEnvironment(model, "synthetic-key"),
       );
       const agent = agents["general-assistant"]?.clone();
       if (!agent) throw new Error("The built-in agent was not constructed");
@@ -397,126 +379,3 @@ test.each([
     }
   },
 );
-
-test("the production selector speaks native Anthropic and rereads its key", async () => {
-  const seen: {
-    path: string;
-    key: string | null;
-    authorization: string | null;
-    version: string | null;
-    body: Record<string, unknown>;
-  }[] = [];
-  const server = Bun.serve({
-    port: 0,
-    hostname: "127.0.0.1",
-    async fetch(request) {
-      seen.push({
-        path: new URL(request.url).pathname,
-        key: request.headers.get("x-api-key"),
-        authorization: request.headers.get("authorization"),
-        version: request.headers.get("anthropic-version"),
-        body: await request.json(),
-      });
-      return Response.json({
-        content: [
-          { type: "thinking", thinking: "private" },
-          { type: "text", text: '{"skills":' },
-          { type: "text", text: '["bank"]}' },
-        ],
-      });
-    },
-  });
-  try {
-    process.env.ANTHROPIC_BASE_URL = `${server.url.origin}/v1/`;
-    process.env.OPENAI_BASE_URL = `${server.url.origin}/v1`;
-    let key = "synthetic-one";
-    const complete = createModelCompleter({
-      model: anthropicModel,
-      resolveApiKey: async () => key,
-    });
-    expect(await complete("Choose bank tools; return JSON.")).toBe(
-      '{"skills":["bank"]}',
-    );
-    key = "synthetic-two";
-    expect(await complete("Choose bank tools; return JSON.")).toBe(
-      '{"skills":["bank"]}',
-    );
-    expect(seen.map((entry) => entry.key)).toEqual([
-      "synthetic-one",
-      "synthetic-two",
-    ]);
-    for (const entry of seen) {
-      expect(entry.path).toBe("/v1/messages");
-      expect(entry.authorization).toBeNull();
-      expect(entry.version).toBe("2023-06-01");
-      expect(entry.body).toMatchObject({
-        model: "claude-sonnet-4-5",
-        max_tokens: expect.any(Number),
-        messages: [
-          { role: "user", content: "Choose bank tools; return JSON." },
-        ],
-      });
-      expect(entry.body).not.toHaveProperty("response_format");
-      expect(entry.body).not.toHaveProperty("temperature");
-    }
-  } finally {
-    await server.stop(true);
-  }
-});
-
-async function bounded<T>(promise: Promise<T>, boundary: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error(`Fixture ${boundary} timed out`)),
-          1500,
-        );
-      }),
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-test("cancelling an Anthropic selector closes its in-flight HTTP request", async () => {
-  const entered = Promise.withResolvers<void>();
-  const closed = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const server = Bun.serve({
-    port: 0,
-    hostname: "127.0.0.1",
-    async fetch(request) {
-      await request.text();
-      request.signal.addEventListener("abort", () => closed.resolve(), {
-        once: true,
-      });
-      entered.resolve();
-      await release.promise;
-      return Response.json({ content: [{ type: "text", text: "late reply" }] });
-    },
-  });
-  try {
-    process.env.ANTHROPIC_BASE_URL = server.url.origin;
-    process.env.OPENAI_BASE_URL = server.url.origin;
-    const controller = new AbortController();
-    const complete = createModelCompleter({
-      model: anthropicModel,
-      resolveApiKey: async () => "synthetic-key",
-    });
-    const run = complete("Choose tools.", controller.signal);
-    const outcome = run.then(
-      () => ({ rejected: false }),
-      () => ({ rejected: true }),
-    );
-    await bounded(entered.promise, "request arrival");
-    controller.abort();
-    expect(await bounded(outcome, "fetch abort")).toEqual({ rejected: true });
-    await bounded(closed.promise, "server abort");
-  } finally {
-    release.resolve();
-    await server.stop(true);
-  }
-}, 5000);

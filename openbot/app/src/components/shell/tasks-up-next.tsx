@@ -1,8 +1,8 @@
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { DuetIcon } from "@/components/duet/icons";
 import { ChannelTagOf } from "@/components/duet/channel-tag";
+import { DuetIcon } from "@/components/duet/icons";
 import { DuetCard, Tile } from "@/components/duet/kit";
 import type { AgentProfile } from "@/lib/agents/queries";
 import { cancelFollowUpMutationOptions } from "@/lib/bot-lifecycle/mutations";
@@ -10,6 +10,7 @@ import { botActivityQueryOptions } from "@/lib/bot-lifecycle/queries";
 import { createChannelMutationOptions } from "@/lib/channels/mutations";
 import { ONGOING_SEARCH_LIMIT, ongoingChannel } from "@/lib/channels/ongoing";
 import { channelListQueryOptions } from "@/lib/channels/queries";
+import { DURATION, EASE_OUT } from "@/lib/motion";
 import {
   changeProactiveSettingMutationOptions,
   type ProactiveSetting,
@@ -20,7 +21,6 @@ import {
   resolveSuggestionMutationOptions,
   turnOnResearchMutationOptions,
 } from "@/lib/proactive";
-import { DURATION, EASE_OUT } from "@/lib/motion";
 import { useReducedMotionPreference } from "@/lib/reduced-motion";
 import { matchesSearch, type SortOrder, sortByTime } from "@/lib/tasks/groups";
 import { queryClient } from "@/query-client";

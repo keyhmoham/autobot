@@ -9,12 +9,12 @@ import { PageCard, previewKind } from "@/components/duet/page-card";
 import { TaskStatusPill } from "@/components/duet/task-card";
 import { primaryBot } from "@/lib/agents/primary-bot";
 import { agentListQueryOptions } from "@/lib/agents/queries";
+import { DURATION, EASE_OUT } from "@/lib/motion";
 import {
   type PageSummary,
   pageKeys,
   pageListQueryOptions,
 } from "@/lib/pages/queries";
-import { DURATION, EASE_OUT } from "@/lib/motion";
 import { useReducedMotionPreference } from "@/lib/reduced-motion";
 import { type TaskRecord, taskListQueryOptions } from "@/lib/tasks/queries";
 import { cn } from "@/lib/utils";

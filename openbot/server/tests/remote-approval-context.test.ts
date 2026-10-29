@@ -5,6 +5,7 @@ import { of } from "rxjs";
 import { z } from "zod";
 import { currentApprovalContext } from "../src/approvals/types";
 import { buildAgents } from "../src/copilot";
+import { noModel } from "./support/models";
 
 async function fixture(answered = false) {
   const requests: RunAgentInput[] = [];
@@ -56,7 +57,7 @@ async function fixture(answered = false) {
       },
     ],
     { provider: "openai", defaultModel: "test" },
-    null,
+    noModel,
   ];
   args[4] = async () => [
     {

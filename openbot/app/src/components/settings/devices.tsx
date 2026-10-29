@@ -1,5 +1,4 @@
 import { IconDeviceMobile, IconSend } from "@tabler/icons-react";
-import { appConfig } from "@/lib/generated/application-config";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import {
@@ -21,6 +20,7 @@ import {
   deliveryQueryOptions,
   removePushDeviceMutationOptions,
 } from "@/lib/delivery";
+import { appConfig } from "@/lib/generated/application-config";
 import { queryClient } from "@/query-client";
 
 const PLATFORM: Record<"ios" | "android", string> = {

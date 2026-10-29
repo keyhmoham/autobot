@@ -18,10 +18,6 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import {
-  type PluginsProvider,
-  brokeredKeyMissing,
-} from "@/lib/plugins/provider-vocabulary";
-import {
   type BrokerField,
   brokeredConnectionFieldsMutationOptions,
   confirmBrokeredConnectionMutationOptions,
@@ -30,6 +26,10 @@ import {
   disconnectBrokeredMutationOptions,
   recheckBrokeredConnectionMutationOptions,
 } from "@/lib/plugins/mutations";
+import {
+  brokeredKeyMissing,
+  type PluginsProvider,
+} from "@/lib/plugins/provider-vocabulary";
 
 /**
  * One person's own brokered account, on whichever screen is asking.

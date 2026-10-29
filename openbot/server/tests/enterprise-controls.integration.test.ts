@@ -116,7 +116,7 @@ beforeAll(async () => {
     databaseUrl: testDatabaseUrl(),
     auditStore,
     provider,
-    builtInModel: "openai/gpt-test",
+    builtInModel: async () => "openai/gpt-test",
     env: {},
   });
 });

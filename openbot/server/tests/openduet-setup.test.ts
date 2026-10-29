@@ -9,8 +9,7 @@ import {
   type ComputerVerdict,
   createSetupSources,
   intelligenceFact,
-  modelKeyOf,
-  modelKeySource,
+  modelSourceOf,
   modelVerdict,
   primaryBotIdOf,
   RECHECK_INTERVAL_MS,
@@ -36,8 +35,8 @@ const PRODUCT = "OpenDuet";
 const READY: SetupFacts = {
   intelligence: { state: "ready" },
   model: {
-    provider: "openai",
-    source: "environment",
+    provider: "OpenAI",
+    source: "gateway",
     verdict: "available",
     model: "gpt-5.6-terra",
   },
@@ -53,7 +52,7 @@ const READY: SetupFacts = {
 const UNSET: SetupFacts = {
   intelligence: { state: "ready" },
   model: {
-    provider: "openai",
+    provider: "OpenAI",
     source: null,
     verdict: "not_checked",
     model: "gpt-5.6-terra",
@@ -123,12 +122,14 @@ describe("setup rows", () => {
 
     const model = row(rows, "model");
     expect(model.ready).toBe(false);
-    expect(model.detail).toBe("Without a model key, OpenDuet can't answer.");
+    expect(model.detail).toBe(
+      "No model is set up yet, so OpenDuet can't answer. Add a provider and choose the model Bots use.",
+    );
     expect(model.fix).toEqual({
-      kind: "env",
-      names: ["OPENAI_API_KEY"],
+      kind: "page",
+      label: "Models",
+      path: "/admin/models",
       docsUrl: "https://github.com/CopilotKit/OpenDuet#quick-start",
-      page: { label: "Credentials", path: "/admin/credentials" },
     });
 
     const google = row(rows, "google");
@@ -155,14 +156,20 @@ describe("setup rows", () => {
     });
   });
 
-  test("an Anthropic deployment names Anthropic's key", () => {
+  test("a refusal names the vendor serving the model", () => {
     const rows = setupRows(
-      { ...UNSET, model: { ...UNSET.model, provider: "anthropic" } },
+      {
+        ...READY,
+        model: {
+          ...READY.model,
+          provider: "Anthropic",
+          verdict: "refused_key",
+        },
+      },
       { productName: PRODUCT, audience: "admin" },
     );
-    expect(row(rows, "model").fix).toMatchObject({
-      names: ["ANTHROPIC_API_KEY"],
-    });
+    expect(row(rows, "model").detail).toContain("Anthropic refused");
+    expect(row(rows, "model").fix).toMatchObject({ path: "/admin/models" });
   });
 
   test("no public address is the variable to set, before any page can help", () => {
@@ -239,7 +246,7 @@ describe("setup rows", () => {
     );
     expect(row(key, "model").status).toBe("needs_setup");
     expect(row(key, "model").detail).toBe(
-      "OpenAI refused the model key, so OpenDuet can't answer.",
+      "OpenAI refused the key stored for it, so OpenDuet can't answer.",
     );
 
     const model = setupRows(
@@ -247,7 +254,7 @@ describe("setup rows", () => {
       { productName: PRODUCT, audience: "admin" },
     );
     expect(row(model, "model").detail).toBe(
-      "The model key can't use gpt-5.6-terra, so OpenDuet can't answer.",
+      "The OpenAI key can't use gpt-5.6-terra, so OpenDuet can't answer.",
     );
   });
 
@@ -259,7 +266,7 @@ describe("setup rows", () => {
     expect(row(unchecked, "model")).toMatchObject({
       status: "not_checked",
       ready: false,
-      detail: "Key set, not checked yet. Check again to ask OpenAI.",
+      detail: "Model chosen, not checked yet. Check again to ask OpenAI.",
       fix: null,
     });
 
@@ -269,7 +276,7 @@ describe("setup rows", () => {
     );
     expect(row(custom, "model")).toMatchObject({
       status: "not_checked",
-      detail: "Key set. It uses a custom endpoint, which OpenDuet can't check.",
+      detail: "Model chosen. OpenAI could not be asked whether it serves it.",
     });
 
     const member = setupRows(
@@ -453,86 +460,23 @@ describe("what the provider's answer means for the key in use now", () => {
   });
 });
 
-describe("where the model key comes from", () => {
-  const credential = (overrides: Partial<CredentialStatus> = {}) =>
-    ({
-      id: "credential-1",
-      kind: "model",
-      provider: "openai",
-      keyId: "openai-api-key",
-      metadata: {},
-      revokedAt: null,
-      ...overrides,
-    }) satisfies CredentialStatus;
-  const reader = (list: CredentialStatus[]) => ({ list: async () => list });
-  const base = {
-    plan: false,
-    provider: "openai" as const,
-    keyId: "openai-api-key",
+describe("how Bots reach a model", () => {
+  const chosen = {
+    model: "gpt-5.6-terra",
+    provider: "OpenAI",
+    stamp: "llmm_1:cred_1",
   };
 
-  test("a plan, then the vault, then the environment, as the runtime reads them", async () => {
+  test("a plan, then a model chosen in Admin → Models, then nothing", async () => {
     expect(
-      await modelKeySource({
-        ...base,
-        plan: true,
-        credentials: reader([]),
-        environment: {},
-      }),
-    ).toBe("plan");
+      await modelSourceOf({ plan: true, describe: async () => chosen }),
+    ).toMatchObject({ source: "plan", stamp: "plan" });
     expect(
-      await modelKeySource({
-        ...base,
-        credentials: reader([credential()]),
-        environment: { OPENAI_API_KEY: "sk-set" },
-      }),
-    ).toBe("credential");
+      await modelSourceOf({ plan: false, describe: async () => chosen }),
+    ).toEqual({ source: "gateway", ...chosen });
     expect(
-      await modelKeySource({
-        ...base,
-        credentials: reader([]),
-        environment: { OPENAI_API_KEY: "sk-set" },
-      }),
-    ).toBe("environment");
-    expect(
-      await modelKeySource({
-        ...base,
-        credentials: reader([]),
-        environment: { OPENAI_API_KEY: "  " },
-      }),
-    ).toBeNull();
-  });
-
-  test("the stamp names the one key, so a rotated vault key is a new key", async () => {
-    expect(
-      await modelKeyOf({
-        ...base,
-        credentials: reader([credential({ id: "credential-7" })]),
-        environment: { OPENAI_API_KEY: "sk-set" },
-      }),
-    ).toEqual({ source: "credential", stamp: "credential:credential-7" });
-    expect(
-      await modelKeyOf({
-        ...base,
-        credentials: reader([]),
-        environment: { OPENAI_API_KEY: "sk-set" },
-      }),
-    ).toEqual({ source: "environment", stamp: "environment" });
-  });
-
-  test("a revoked key, another provider's key and another key id do not count", async () => {
-    expect(
-      await modelKeySource({
-        ...base,
-        credentials: reader([
-          credential({ revokedAt: new Date() }),
-          credential({ provider: "anthropic" }),
-          credential({ keyId: "something-else" }),
-          credential({ kind: "connector" }),
-        ]),
-        environment: {},
-      }),
-    ).toBeNull();
+      await modelSourceOf({ plan: false, describe: async () => null }),
+    ).toMatchObject({ source: null, stamp: null });
   });
 });
 
@@ -604,18 +548,27 @@ function appWith(input: {
   const setup = createSetupSources({
     productName: PRODUCT,
     config,
-    environment: testEnvironment(input.environment),
     model: {
-      provider: "openai",
-      keyId: "openai-api-key",
-      defaultModel: "gpt-5.6-terra",
       plan: false,
+      // A key in the environment or the vault stands for a model chosen in Admin → Models, with the
+      // same stamps the boot check below is taken under.
+      describe: async () => {
+        const stored = input.credentials?.find((row) => row.revokedAt === null);
+        if (stored)
+          return {
+            model: "gpt-5.6-terra",
+            provider: "OpenAI",
+            stamp: `credential:${stored.id}`,
+          };
+        return input.environment.OPENAI_API_KEY?.trim()
+          ? { model: "gpt-5.6-terra", provider: "OpenAI", stamp: "environment" }
+          : null;
+      },
       check: async () => {
         counts.checks += 1;
         return input.modelCheck?.() ?? { kind: "available" };
       },
     },
-    credentials: { list: async () => input.credentials ?? [] },
     ...(input.modelCheckAtBoot
       ? {
           modelCheckAtBoot: Promise.resolve({
@@ -725,7 +678,7 @@ describe("GET /api/openduet/setup", () => {
         .map((candidate) => [candidate.id, candidate.fix?.kind ?? null]),
     );
     expect(gaps).toEqual({
-      model: "env",
+      model: "page",
       google: "page",
       gmail: null,
       computer: "env",
@@ -818,7 +771,7 @@ describe("GET /api/openduet/setup", () => {
     expect(app.counts.checks).toBe(1);
     expect(row(after.checklist.rows, "model")).toMatchObject({
       status: "needs_setup",
-      detail: "OpenAI refused the model key, so OpenDuet can't answer.",
+      detail: "OpenAI refused the key stored for it, so OpenDuet can't answer.",
     });
 
     // A second press inside the interval is answered from the first, with no second call out.
@@ -888,7 +841,7 @@ describe("GET /api/openduet/setup", () => {
     );
     expect(row(checklist.rows, "model")).toMatchObject({
       ready: false,
-      detail: "OpenAI refused the model key, so OpenDuet can't answer.",
+      detail: "OpenAI refused the key stored for it, so OpenDuet can't answer.",
     });
   });
 

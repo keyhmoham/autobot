@@ -14,6 +14,7 @@ import { builtInAgentConfiguration } from "../src/copilot";
 import { RunChannelMiddleware } from "../src/openduet/run-channel";
 import { createTaskReplyContext } from "../src/openduet/task-reply-context";
 import { createTaskTurn } from "../src/openduet/task-threads";
+import { modelFromEnvironment } from "./support/models";
 
 type Model = Extract<
   BuiltInAgentClassicConfig["model"],
@@ -110,7 +111,10 @@ function harness(options: { approval?: boolean } = {}) {
   const configuration = builtInAgentConfiguration(
     { id: "bot", name: "Bot", type: "built_in", systemPrompt: ROLE },
     { provider: "openai", defaultModel: "offline" },
-    "unused-offline-key",
+    modelFromEnvironment(
+      { provider: "openai", defaultModel: "offline" },
+      "unused-offline-key",
+    ),
     [],
     undefined,
     [],

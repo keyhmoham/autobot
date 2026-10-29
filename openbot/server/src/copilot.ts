@@ -29,6 +29,7 @@ import {
   CoworkerUnavailableError,
 } from "./agents/agent-resolver";
 import {
+  type PlanLanguageModel,
   PlanModel,
   type PlanModelConfig,
   planModelForEnvironment,
@@ -190,6 +191,17 @@ export function standingRoleMessage(
     ].join("\n\n"),
   };
 }
+
+/** A model a built-in Bot thinks with: the runtime's own model contract, no second AI SDK version. */
+export type BotLanguageModel = PlanLanguageModel;
+
+/**
+ * The model each built-in Bot thinks with, for one person. Null when none is set up; a Bot without
+ * one is built anyway and says so at its first turn rather than vanishing from the roster.
+ */
+export type BotModelSource = (
+  botId: string,
+) => Promise<BotLanguageModel | null>;
 
 export type RuntimeModel = {
   provider: "openai" | "anthropic";
@@ -367,7 +379,11 @@ export function standingInstructionsGuidance(
 export function builtInAgentConfiguration(
   agent: RegisteredBuiltInAgent,
   model: RuntimeModel,
-  apiKey: string | null,
+  /**
+   * The model this Bot thinks with, through the deployment's model gateway (llm/models.ts). Null when
+   * no model is set up, which leaves the Bot failing at its first turn with a sentence saying so.
+   */
+  thinksWith: BotLanguageModel | null,
   /**
    * What this Bot may call, resolved for the person asking.
    *
@@ -401,13 +417,14 @@ export function builtInAgentConfiguration(
   planModel?: PlanModel,
   learnedSkills?: LearnedSkillInvocation,
 ): BuiltInAgentConfiguration {
-  if (!apiKey && !planModel) {
+  const thinking = planModel ?? thinksWith;
+  if (!thinking) {
     return {
       type: "custom",
       // biome-ignore lint/correctness/useYield: this agent must fail when iteration starts.
       factory: async function* () {
         throw new Error(
-          `Model credential is not configured for ${agent.name}. Add the package credential or set ${model.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"}.`,
+          `${agent.name} has no model to think with. An administrator adds a provider and chooses the model Bots use in Admin → Models.`,
         );
       },
     };
@@ -430,13 +447,7 @@ export function builtInAgentConfiguration(
      * reply chips are shown under its question, the next step is answered "stop" without reaching the
      * model. See `endingTurns` in openduet/reply-turn.ts.
      */
-    model:
-      allTools.length > 0
-        ? endingTurns(
-            planModel ?? `${model.provider}/${model.defaultModel}`,
-            apiKey ?? undefined,
-          )
-        : (planModel ?? `${model.provider}/${model.defaultModel}`),
+    model: allTools.length > 0 ? endingTurns(thinking) : thinking,
     /*
      * The package's role, then the person's own standing instructions, then what this Bot actually
      * holds, then the computer.
@@ -468,7 +479,6 @@ export function builtInAgentConfiguration(
       ...(computerGuidance ? [computerGuidance] : []),
       ...(learnedSkills?.catalog ? [learnedSkills.catalog] : []),
     ].join("\n\n"),
-    ...(planModel ? {} : { apiKey: apiKey ?? undefined }),
     /*
      * A run stops after one step unless told otherwise, which for a Bot with tools means it calls
      * one and never speaks: the tool executes, the result arrives, and the run ends before the model
@@ -525,7 +535,8 @@ const TOOL_STEPS = 8;
 export async function buildAgents(
   agents: RegisteredAgent[],
   model: RuntimeModel,
-  apiKey: string | null,
+  /** The model each built-in Bot thinks with, resolved per Bot for the person this build is for. */
+  modelFor: BotModelSource,
   /** Absent leaves every stream unwatched, which is what an unconfigured timeout means. */
   stallGuard?: StallGuard,
   /** Absent leaves every Bot with no tools, which is the correct answer when nothing is granted. */
@@ -615,7 +626,7 @@ export async function buildAgents(
         const built = await buildAgent(
           agent,
           model,
-          apiKey,
+          agent.type === "built_in" ? await modelFor(agent.id) : null,
           stallGuard,
           loadTools,
           signRun,
@@ -874,7 +885,7 @@ async function inlineAttachments(
 async function buildAgent(
   agent: RegisteredAgent,
   model: RuntimeModel,
-  apiKey: string | null,
+  thinksWith: BotLanguageModel | null,
   stallGuard: StallGuard | undefined,
   loadTools: LoadToolsForBot,
   signRun?: SignRun,
@@ -1012,7 +1023,7 @@ async function buildAgent(
       builtInAgentConfiguration(
         agent,
         model,
-        apiKey,
+        thinksWith,
         tools,
         computerGuidance,
         connectedVendors,
@@ -1594,7 +1605,7 @@ function mastraOpenBotContext({
 export async function resolveRuntimeAgents(
   loadAgents: () => Promise<RegisteredAgent[]>,
   model: RuntimeModel,
-  resolveModelApiKey: () => Promise<string | null>,
+  modelFor: BotModelSource,
   stallGuard?: StallGuard,
   loadTools?: LoadToolsForBot,
   signRun?: SignRun,
@@ -1651,13 +1662,10 @@ export async function resolveRuntimeAgents(
   // what that means, exactly as it would have from a roster that did not contain it.
   if (registered.length === 0) return {};
 
-  const apiKey = registered.some((agent) => agent.type === "built_in")
-    ? await resolveModelApiKey()
-    : null;
   return buildAgents(
     registered,
     model,
-    apiKey,
+    modelFor,
     stallGuard,
     loadTools,
     signRun,

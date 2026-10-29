@@ -6,6 +6,7 @@ import { loadConfig } from "../src/config";
 import { mountCopilotRuntime } from "../src/copilot";
 import { createLearningSettingsStore } from "../src/learning/settings";
 import { testEnvironment } from "./support/environment";
+import { noModel } from "./support/models";
 
 test("delegation creates its scratch Thread with the addressed Bot's Learning assignment before locking", async () => {
   const order: string[] = [];
@@ -52,7 +53,7 @@ test("delegation creates its scratch Thread with the addressed Bot's Learning as
       createActorAgentResolver({
         model: { provider: "openai", defaultModel: "unused" },
         loadAgents: async () => [],
-        resolveModelApiKey: async () => null,
+        modelsForActor: () => noModel,
         stallGuard: guard,
       }),
       async () => ({ id: "person", name: "Person" }),

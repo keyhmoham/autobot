@@ -246,8 +246,6 @@ server/tests/voice-routes.test.ts: error TS2741: Property 'pinned' is missing in
 server/tests/voice-session-preview.integration.test.ts: error TS2769: No overload matches this call.
 server/tests/voice-session-routes.test.ts: error TS2739: Type 'Response & TypedResponse<{ error: string; }, 401, "json">' is missing the following properties from type 'Promise<void | Response>': then, catch, finally, [Symbol.toStringTag]
 server/tests/voice-session-store.integration.test.ts: error TS2345: Argument of type '`page-${string}`' is not assignable to parameter of type '`${string}-${string}-${string}-${string}-${string}`'.
-server/tests/voice-sessions.test.ts: error TS2741: Property 'preconnect' is missing in type '() => Promise<Response>' but required in type 'typeof fetch'.
-server/tests/voice-sessions.test.ts: error TS2741: Property 'preconnect' is missing in type '(_url: URL | RequestInfo, init: RequestInit | BunFetchRequestInit | undefined) => Promise<Response>' but required in type 'typeof fetch'.
 server/tests/web-research.test.ts: error TS2339: Property 'get' does not exist on type 'never'.
 server/tests/web-research.test.ts: error TS2339: Property 'get' does not exist on type 'never'.
 server/tests/web-research.test.ts: error TS2339: Property 'get' does not exist on type 'never'.

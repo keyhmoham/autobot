@@ -1,3 +1,4 @@
+import type { ConnectPrompt } from "@openbot/shared/connect-prompt";
 import { useQuery } from "@tanstack/react-query";
 import {
   AppAccessAction,
@@ -6,7 +7,6 @@ import {
 import { PluginLogo } from "@/components/plugins/plugin-logo";
 import { type AppAccess, botAppQueryOptions } from "@/lib/app-access/queries";
 import { useDeclaredBotId } from "@/lib/copilot/active-bot";
-import type { ConnectPrompt } from "@openbot/shared/connect-prompt";
 import { ConnectAppCard } from "./connect-app-card";
 
 /**

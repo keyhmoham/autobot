@@ -1,7 +1,6 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import type { AppVariables } from "../auth/guards";
 import type { DeploymentConfig } from "../config";
-import type { CredentialStatusReader } from "../credentials";
 import { entitlementWarning } from "../intelligence-entitlement-check";
 import type { ModelCheckOutcome } from "../model-availability-check";
 import type { BrokerProvider } from "../plugins/access";
@@ -140,11 +139,15 @@ export type ModelVerdict =
 export type SetupFacts = {
   intelligence: IntelligenceFact;
   model: {
-    provider: "openai" | "anthropic";
-    /** Where the key the Bots answer with comes from, or null when there is none. */
-    source: "plan" | "credential" | "environment" | null;
+    /** The vendor serving the model Bots think with, as an administrator named it. */
+    provider: string;
+    /**
+     * How Bots reach a model: a model chosen in Admin → Models, through the gateway, or a desktop
+     * subscription plan. Null when neither is set up.
+     */
+    source: "plan" | "gateway" | null;
     verdict: ModelVerdict;
-    /** The model the Bots run on, named when the key cannot use it. */
+    /** The model the Bots run on, named when its key cannot use it. */
     model: string;
   };
   google: {
@@ -172,11 +175,6 @@ export type SetupFacts = {
   chat: boolean;
 };
 
-const KEY_NAME = {
-  openai: "OPENAI_API_KEY",
-  anthropic: "ANTHROPIC_API_KEY",
-} as const;
-const PROVIDER_NAME = { openai: "OpenAI", anthropic: "Anthropic" } as const;
 const BROKER = {
   composio: { key: "COMPOSIO_API_KEY", docs: `${DOCS}/plugins/composio.md` },
   arcade: { key: "ARCADE_API_KEY", docs: `${DOCS}/plugins/arcade.md` },
@@ -388,21 +386,21 @@ function intelligenceRow(fact: IntelligenceFact, product: string) {
   };
 }
 
-/** The model row, from where its key comes from and what the provider last said about that key. */
+/** The model row, from how Bots reach a model and what its vendor last said about its key. */
 function modelRow(model: SetupFacts["model"], product: string) {
-  const provider = PROVIDER_NAME[model.provider];
+  const provider = model.provider;
   const fix: SetupFix = {
-    kind: "env",
-    names: [KEY_NAME[model.provider]],
+    kind: "page",
+    label: "Models",
+    path: "/admin/models",
     docsUrl: QUICK_START,
-    page: { label: "Credentials", path: "/admin/credentials" },
   };
   const readyDetail = `Lets ${product} answer you.`;
   if (model.source === null)
     return {
       status: "needs_setup" as const,
       readyDetail,
-      gapDetail: `Without a model key, ${product} can't answer.`,
+      gapDetail: `No model is set up yet, so ${product} can't answer. Add a provider and choose the model Bots use.`,
       fix,
     };
   // A subscription plan answers without a key of ours, so there is no key to ask about.
@@ -415,28 +413,28 @@ function modelRow(model: SetupFacts["model"], product: string) {
       return {
         status: "needs_setup" as const,
         readyDetail,
-        gapDetail: `${provider} refused the model key, so ${product} can't answer.`,
+        gapDetail: `${provider} refused the key stored for it, so ${product} can't answer.`,
         fix,
       };
     case "refused_model":
       return {
         status: "needs_setup" as const,
         readyDetail,
-        gapDetail: `The model key can't use ${model.model}, so ${product} can't answer.`,
+        gapDetail: `The ${provider} key can't use ${model.model}, so ${product} can't answer.`,
         fix,
       };
     case "cannot_check":
       return {
         status: "not_checked" as const,
         readyDetail,
-        gapDetail: `Key set. It uses a custom endpoint, which ${product} can't check.`,
+        gapDetail: `Model chosen. ${provider} could not be asked whether it serves it.`,
         fix: null,
       };
     case "not_checked":
       return {
         status: "not_checked" as const,
         readyDetail,
-        gapDetail: `Key set, not checked yet. Check again to ask ${provider}.`,
+        gapDetail: `Model chosen, not checked yet. Check again to ask ${provider}.`,
         fix: null,
       };
   }
@@ -532,7 +530,7 @@ export function intelligenceFact(
  * The provider's answer about the key in use now.
  *
  * A check about another key says nothing about this one: the stamp names the key the check was
- * made with (see {@link modelKeyOf}), and a key added or rotated since is "not checked yet". Only a
+ * made with (see {@link modelSourceOf}), and a key added or rotated since is "not checked yet". Only a
  * definite answer counts: a 401 or 403 on the key, a 404 on the model, a 2xx. "Could not ask" is
  * not evidence either way.
  */
@@ -551,45 +549,31 @@ export function modelVerdict(
 }
 
 /**
- * Where the key the built-in Bots answer with comes from, in the order the runtime resolves it, and
- * a stamp naming that one key.
- *
- * The stamp is what tells a check about this key from a check about the one before it: the vault
- * row's id (rotating a key writes a new row), or the source's name for the environment and a plan,
- * which cannot change without a restart. An id, never anything read from the secret.
+ * How the built-in Bots reach a model, and a stamp naming exactly which: the chosen chat model and the
+ * key its provider holds now, so a check about one model or key is never read as an answer about
+ * another chosen since. An id, never anything read from the secret.
  */
-export async function modelKeyOf(input: {
+export async function modelSourceOf(input: {
   plan: boolean;
-  provider: "openai" | "anthropic";
-  keyId: string;
-  credentials: CredentialStatusReader;
-  environment: Record<string, string | undefined>;
+  /** The chat role's model, its provider's name, and the stamp. Null when none is chosen. */
+  describe: () => Promise<{
+    model: string;
+    provider: string;
+    stamp: string;
+  } | null>;
 }): Promise<{
   source: SetupFacts["model"]["source"];
   stamp: string | null;
+  model: string;
+  provider: string;
 }> {
   // A subscription plan answers without any key (see `planModelForEnvironment`).
-  if (input.plan) return { source: "plan", stamp: "plan" };
-  // The vault before the environment, as `resolveModelApiKey` reads them. Statuses only: the list
-  // carries no secret, so nothing here could hold one even by mistake.
-  const stored = (await input.credentials.list()).find(
-    (credential) =>
-      credential.kind === "model" &&
-      credential.provider === input.provider &&
-      credential.keyId === input.keyId &&
-      credential.revokedAt === null,
-  );
-  if (stored) return { source: "credential", stamp: `credential:${stored.id}` };
-  return input.environment[KEY_NAME[input.provider]]?.trim()
-    ? { source: "environment", stamp: "environment" }
-    : { source: null, stamp: null };
-}
-
-/** Where the key comes from, without the stamp. */
-export async function modelKeySource(
-  input: Parameters<typeof modelKeyOf>[0],
-): Promise<SetupFacts["model"]["source"]> {
-  return (await modelKeyOf(input)).source;
+  if (input.plan)
+    return { source: "plan", stamp: "plan", model: "", provider: "Your plan" };
+  const chosen = await input.describe();
+  return chosen
+    ? { source: "gateway", ...chosen }
+    : { source: null, stamp: null, model: "", provider: "The model provider" };
 }
 
 /**
@@ -639,16 +623,17 @@ function withinTime<T>(promise: Promise<T>, ms: number): Promise<T | Error> {
 export function createSetupSources(input: {
   productName: string;
   config: DeploymentConfig;
-  environment: Record<string, string | undefined>;
   model: {
-    provider: "openai" | "anthropic";
-    keyId: string;
-    defaultModel: string;
     plan: boolean;
-    /** One read of the provider's model endpoint with the key in use now. Never rejects. */
+    /** The chat role's model and its provider, as `modelSourceOf` reads them. */
+    describe: () => Promise<{
+      model: string;
+      provider: string;
+      stamp: string;
+    } | null>;
+    /** One read of the provider's model list with the key in use now. Never rejects. */
     check?: () => Promise<ModelCheckOutcome>;
   };
-  credentials: CredentialStatusReader;
   /** The answer the boot check got, with the stamp of the key it asked about. */
   modelCheckAtBoot?: Promise<
     { outcome: ModelCheckOutcome; stamp: string | null } | undefined
@@ -675,13 +660,7 @@ export function createSetupSources(input: {
   apps: { configured: boolean; provider: BrokerProvider };
   chat: boolean;
 }): SetupSources {
-  const keyFacts = {
-    plan: input.model.plan,
-    provider: input.model.provider,
-    keyId: input.model.keyId,
-    credentials: input.credentials,
-    environment: input.environment,
-  };
+  const keyFacts = { plan: input.model.plan, describe: input.model.describe };
   const askIntelligence = () =>
     withinTime(input.entitlements(), INTELLIGENCE_TIMEOUT_MS).then(
       intelligenceFact,
@@ -712,7 +691,7 @@ export function createSetupSources(input: {
     facts: async (userId) => {
       const [key, check, intelligenceNow, servers, gmail, computerNow] =
         await Promise.all([
-          modelKeyOf(keyFacts),
+          modelSourceOf(keyFacts),
           modelCheck,
           intelligence,
           input.plugins.listServers(),
@@ -728,10 +707,10 @@ export function createSetupSources(input: {
       return {
         intelligence: intelligenceNow,
         model: {
-          provider: input.model.provider,
+          provider: key.provider,
           source: key.source,
           verdict: modelVerdict(check, key.stamp),
-          model: input.model.defaultModel,
+          model: key.model,
         },
         google: {
           publicUrl: Boolean(input.config.publicUrl),
@@ -757,7 +736,7 @@ export function createSetupSources(input: {
       const check = input.model.check;
       if (check) {
         modelCheck = (async () => {
-          const { stamp } = await modelKeyOf(keyFacts);
+          const { stamp } = await modelSourceOf(keyFacts);
           return stamp === null ? undefined : { outcome: await check(), stamp };
         })().catch(() => undefined);
       }

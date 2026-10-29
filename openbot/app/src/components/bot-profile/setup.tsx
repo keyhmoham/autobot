@@ -47,8 +47,8 @@ import {
 import { updateAgentMutationOptions } from "@/lib/agents/mutations";
 import type { AgentProfile } from "@/lib/agents/queries";
 import { isComposing } from "@/lib/composing";
-import { queryClient } from "@/query-client";
 import { appConfig } from "@/lib/generated/application-config";
+import { queryClient } from "@/query-client";
 
 type TextField = "name" | "title" | "roleDescription";
 
