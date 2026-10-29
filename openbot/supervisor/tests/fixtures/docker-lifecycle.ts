@@ -7,7 +7,7 @@ import {
   test,
 } from "bun:test";
 import type Docker from "dockerode";
-import { namesFor, NAMESPACE } from "../../src/names";
+import { NAMESPACE, namesFor } from "../../src/names";
 
 // Launched by docker.integration.test.ts in a fresh process: names.ts reads its namespace once.
 const namespace = NAMESPACE;
@@ -23,7 +23,7 @@ if (
 const SOCKET = process.env.DOCKER_SOCKET ?? "/var/run/docker.sock";
 
 const { default: DockerClient } = await import("dockerode");
-const supervisor = await import("../../src/docker");
+const supervisor = await import("../../src/backends/docker");
 const runtime: { docker: Docker; supervisor: typeof supervisor } = {
   docker: new DockerClient({ socketPath: SOCKET }),
   supervisor,

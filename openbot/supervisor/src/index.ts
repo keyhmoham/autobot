@@ -1,21 +1,17 @@
 import { serve } from "bun";
 import { Hono } from "hono";
 import { authorised } from "./authorisation";
-import { environmentFor } from "./environment";
 import {
+  BackendUnavailableError,
   ComputerNotAnsweringError,
-  DockerUnavailableError,
-  ensure,
-  listOwned,
   NameHeldError,
-  reachable,
-  reset,
-  stop,
-} from "./docker";
-import { registerEntry } from "./identity";
-import { namesFor } from "./names";
+} from "./backend";
+import { backendFromEnvironment } from "./backends";
 import { computerMemoryBytes } from "./computer-memory-bytes";
+import { environmentFor } from "./environment";
+import { registerEntry } from "./identity";
 import { listenPort } from "./listen-port";
+import { namesFor } from "./names";
 
 /**
  * The container supervisor: the only thing here that holds the Docker socket.
@@ -72,6 +68,13 @@ if (!resolvedMemory.ok) {
 const memoryBytes = resolvedMemory.bytes;
 const spireSocketVolume =
   process.env.SPIRE_AGENT_SOCKET_VOLUME?.trim() || undefined;
+// What runs the computers: Docker here, a Nomad cluster, or Modal's sandboxes. See backend.ts.
+const chosen = backendFromEnvironment();
+if (!chosen.ok) {
+  console.error(chosen.reason);
+  process.exit(1);
+}
+const backend = chosen.backend;
 
 const app = new Hono();
 
@@ -85,7 +88,11 @@ app.use("*", async (context, next) => {
 });
 
 app.get("/health", async (context) =>
-  context.json({ status: "ok", docker: await reachable() }),
+  context.json({
+    status: "ok",
+    backend: backend.name,
+    reachable: await backend.reachable(),
+  }),
 );
 
 /** The Bot id in the path, validated before it becomes any kind of name. */
@@ -102,7 +109,7 @@ app.post("/computers/:botId/ensure", async (context) => {
     // request.
     const identity = await registerEntry(parsed.names);
 
-    const state = await ensure(parsed.names, {
+    const state = await backend.ensure(parsed.names, {
       image,
       environment: environmentFor(parsed.names.botId),
       ...(network ? { network } : {}),
@@ -125,7 +132,7 @@ app.post("/computers/:botId/ensure", async (context) => {
     // Not ready is a 503 like an outage is, because the caller's next move is the same: wait and
     // ask again. The message is what differs, and it is the part an operator acts on.
     if (
-      error instanceof DockerUnavailableError ||
+      error instanceof BackendUnavailableError ||
       error instanceof ComputerNotAnsweringError
     ) {
       return context.json({ error: error.message }, 503);
@@ -138,10 +145,10 @@ app.post("/computers/:botId/stop", async (context) => {
   const parsed = resolve(context.req.param("botId"));
   if (!parsed.ok) return context.json({ error: parsed.reason }, 400);
   try {
-    const stopped = await stop(parsed.names);
+    const stopped = await backend.stop(parsed.names);
     return context.json({ stopped });
   } catch (error) {
-    if (error instanceof DockerUnavailableError) {
+    if (error instanceof BackendUnavailableError) {
       return context.json({ error: error.message }, 503);
     }
     throw error;
@@ -152,10 +159,10 @@ app.post("/computers/:botId/reset", async (context) => {
   const parsed = resolve(context.req.param("botId"));
   if (!parsed.ok) return context.json({ error: parsed.reason }, 400);
   try {
-    const wasThere = await reset(parsed.names);
+    const wasThere = await backend.reset(parsed.names);
     return context.json({ reset: wasThere });
   } catch (error) {
-    if (error instanceof DockerUnavailableError) {
+    if (error instanceof BackendUnavailableError) {
       return context.json({ error: error.message }, 503);
     }
     throw error;
@@ -164,9 +171,9 @@ app.post("/computers/:botId/reset", async (context) => {
 
 app.get("/computers", async (context) => {
   try {
-    return context.json({ computers: await listOwned() });
+    return context.json({ computers: await backend.listOwned() });
   } catch (error) {
-    if (error instanceof DockerUnavailableError) {
+    if (error instanceof BackendUnavailableError) {
       return context.json({ error: error.message }, 503);
     }
     throw error;
@@ -176,5 +183,5 @@ app.get("/computers", async (context) => {
 serve({ port, fetch: app.fetch, idleTimeout: 120 });
 
 console.info(
-  `Supervisor listening on http://localhost:${port} (image ${image}${runtime ? `, runtime ${runtime}` : ""})`,
+  `Supervisor listening on http://localhost:${port} (${backend.name}, image ${image}${runtime ? `, runtime ${runtime}` : ""})`,
 );

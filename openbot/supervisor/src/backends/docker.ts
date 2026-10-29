@@ -1,12 +1,23 @@
 import Docker from "dockerode";
 import {
+  BackendUnavailableError,
+  type ComputerBackend,
+  ComputerNotAnsweringError,
+  type ComputerState,
+  DEFAULT_READY_TIMEOUT_MS,
+  type EnsureOptions,
+  NameHeldError,
+  pause,
+  tokenIn,
+} from "../backend";
+import {
   BOT_LABEL,
   type ComputerNames,
   DEFAULT_NAMESPACE,
   NAMESPACE,
   NAMESPACE_LABEL,
   OWNER_LABEL,
-} from "./names";
+} from "../names";
 
 /**
  * The only Docker this service knows how to do.
@@ -76,66 +87,6 @@ function statusOf(error: unknown): number | undefined {
   return (error as { statusCode?: number }).statusCode;
 }
 
-/** One poll interval, used both by the health wait and by the retry that follows a lost race. */
-function pause(ms: number): Promise<void> {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  setTimeout(resolve, ms);
-  return promise;
-}
-
-export type ComputerState = {
-  botId: string;
-  container: string;
-  status: string;
-  /** When this computer started, so a surface can say how long it has been up. */
-  startedAt?: string;
-  /** Its published port, when it has one. Absent on a shared network, where nothing is published. */
-  port?: number;
-  /** Where to reach it, however it is arranged. */
-  url?: string;
-};
-
-/**
- * The name this Bot's computer would have is held by a container this supervisor does not own.
- *
- * Separate from {@link DockerUnavailableError} because the daemon is fine and an operator sent
- * looking at it would find nothing. What has to happen is that somebody looks at the container
- * holding the name and decides whether it should be there.
- */
-export class NameHeldError extends Error {
-  constructor(container: string) {
-    super(
-      `A container named ${container} already exists and does not belong to this deployment. Remove it or rename it; it will not be adopted.`,
-    );
-    this.name = "NameHeldError";
-  }
-}
-
-/**
- * The container started and the computer inside it never answered.
- *
- * Its own class because the two failures need different actions. Docker being unreachable is the
- * supervisor's problem; this is the computer's, and the message has to say so or an operator reads
- * "could not reach Docker" about a daemon that is answering.
- */
-export class ComputerNotAnsweringError extends Error {
-  constructor(container: string, timeoutMs: number) {
-    super(
-      `The computer in ${container} started but did not answer within ${timeoutMs}ms. It is not ready, so it is not being handed out.`,
-    );
-    this.name = "ComputerNotAnsweringError";
-  }
-}
-
-export class DockerUnavailableError extends Error {
-  constructor(cause: string) {
-    super(
-      `The supervisor could not reach Docker (${cause}). A computer cannot be started without it.`,
-    );
-    this.name = "DockerUnavailableError";
-  }
-}
-
 export async function reachable(): Promise<boolean> {
   try {
     await docker.ping();
@@ -203,7 +154,7 @@ export async function listOwned(): Promise<ComputerState[]> {
       ...(portOf(container.Ports) ? { port: portOf(container.Ports) } : {}),
     }));
   } catch (error) {
-    throw new DockerUnavailableError(String(error));
+    throw new BackendUnavailableError("Docker", String(error));
   }
 }
 
@@ -246,7 +197,7 @@ async function inspectOwned(names: ComputerNames): Promise<{
     };
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode === 404) return null;
-    throw new DockerUnavailableError(String(error));
+    throw new BackendUnavailableError("Docker", String(error));
   }
 }
 
@@ -286,12 +237,6 @@ async function runsCurrentImage(
 }
 
 /** `COMPUTER_TOKEN=...` out of a list of `KEY=value`, which is how both sides carry an environment. */
-function tokenIn(environment: string[] | undefined): string | undefined {
-  const entry = environment?.find((line) => line.startsWith(`${TOKEN_NAME}=`));
-  return entry?.slice(TOKEN_NAME.length + 1);
-}
-
-const TOKEN_NAME = "COMPUTER_TOKEN";
 
 /**
  * Whether the computer that exists will accept the token this deployment now hands out.
@@ -326,7 +271,6 @@ function holdsCurrentToken(
 }
 
 /** Long enough for a cold start with a large image, short enough that a caller is not left hanging. */
-const DEFAULT_READY_TIMEOUT_MS = 60_000;
 
 /**
  * Wait until the computer actually answers.
@@ -376,37 +320,6 @@ async function waitUntilAnswering(
    */
   throw new ComputerNotAnsweringError(container, timeoutMs);
 }
-
-export type EnsureOptions = {
-  image: string;
-  /** Passed to the computer so a Bot's traffic still leaves by the route configured for it. */
-  environment: string[];
-  /** A network to join, when the supervisor runs alongside a compose stack. */
-  network?: string;
-  /**
-   * The container runtime. Left unset this is Docker's default, which shares the host kernel.
-   * Setting `runsc` runs each computer under gVisor, which intercepts syscalls in user space and is
-   * the pragmatic middle ground for untrusted Bot code. A deployment that wants a kernel per Bot
-   * points this at a microVM runtime instead.
-   */
-  runtime?: string;
-  memoryBytes?: number;
-  /**
-   * How long a started computer is given to answer before the attempt is called a failure.
-   *
-   * Configurable because the wait now fails rather than returning, so the number decides when a slow
-   * start becomes an error, and a deployment pulling a large image on a cold host is not the same as
-   * a test that wants an answer in seconds.
-   */
-  readyTimeoutMs?: number;
-  pidsLimit?: number;
-  /**
-   * The volume holding the SPIRE agent's Workload API socket, mounted read-only into each computer
-   * so it can ask what it is. Unset means no identity, which is a deployment choice rather than a
-   * failure.
-   */
-  spireSocketVolume?: string;
-};
 
 /**
  * Confinement applied to every computer.
@@ -497,7 +410,7 @@ export async function ensure(
         // Already gone is the outcome this wanted. Anything else and the computer stays as it is,
         // which is the same answer this function gave before it could replace one at all.
         if (statusOf(error) !== 404) {
-          throw new DockerUnavailableError(String(error));
+          throw new BackendUnavailableError("Docker", String(error));
         }
       }
       existing = null;
@@ -513,7 +426,7 @@ export async function ensure(
         } catch (error) {
           // Already exists is success for a restarted supervisor.
           if (statusOf(error) !== 409) {
-            throw new DockerUnavailableError(String(error));
+            throw new BackendUnavailableError("Docker", String(error));
           }
         }
       }
@@ -532,7 +445,7 @@ export async function ensure(
         });
       } catch (error) {
         if (statusOf(error) !== 409) {
-          throw new DockerUnavailableError(String(error));
+          throw new BackendUnavailableError("Docker", String(error));
         }
         /*
          * Something already holds the name, and 409 does not say what.
@@ -575,7 +488,7 @@ export async function ensure(
         }
         // 304 is "already running", which is success for an idempotent verb.
         if (status !== 304) {
-          throw new DockerUnavailableError(String(error));
+          throw new BackendUnavailableError("Docker", String(error));
         }
       }
     }
@@ -599,7 +512,8 @@ export async function ensure(
     };
   }
 
-  throw new DockerUnavailableError(
+  throw new BackendUnavailableError(
+    "Docker",
     `The computer for ${names.botId} was removed while it was being started.`,
   );
 }
@@ -613,7 +527,7 @@ export async function stop(names: ComputerNames): Promise<boolean> {
   } catch (error) {
     const status = (error as { statusCode?: number }).statusCode;
     if (status !== 304 && status !== 404) {
-      throw new DockerUnavailableError(String(error));
+      throw new BackendUnavailableError("Docker", String(error));
     }
   }
   return true;
@@ -634,7 +548,7 @@ export async function reset(names: ComputerNames): Promise<boolean> {
       .remove({ force: true, v: false });
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode !== 404) {
-      throw new DockerUnavailableError(String(error));
+      throw new BackendUnavailableError("Docker", String(error));
     }
   }
 
@@ -644,8 +558,18 @@ export async function reset(names: ComputerNames): Promise<boolean> {
     const status = (error as { statusCode?: number }).statusCode;
     // 409 is "still in use", which resolves itself once the container is gone.
     if (status !== 404 && status !== 409) {
-      throw new DockerUnavailableError(String(error));
+      throw new BackendUnavailableError("Docker", String(error));
     }
   }
   return true;
 }
+
+/** Docker on this host: the four verbs above, as one backend. */
+export const dockerBackend: ComputerBackend = {
+  name: "Docker",
+  reachable,
+  ensure,
+  stop,
+  reset,
+  listOwned,
+};
