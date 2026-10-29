@@ -303,6 +303,10 @@ import {
   loadTenantPackage,
   synchronizeTenantPackage,
 } from "./tenant-package";
+import { createTimelineFeeds } from "./timeline/feeds";
+import { createTimelineRoutes } from "./timeline/routes";
+import { createTimeline } from "./timeline/service";
+import { createTimelineTools } from "./timeline/tools";
 import { createUserInstructionsStore } from "./user-instructions";
 import { createUserPreferencesStore } from "./user-preferences";
 import { createVoiceSessionStore } from "./voice/sessions";
@@ -745,6 +749,10 @@ const gatewayTokens = createGatewayTokens({
     ? { deploymentKey: process.env.LLM_GATEWAY_KEY.trim() }
     : {}),
 });
+// Every space's timeline, filled from what the deployment already records: see timeline/feeds.ts.
+const timeline = createTimeline({ database });
+createTimelineFeeds({ database, timeline }).start();
+
 // Every credit that moves, moves here: see wallet/service.ts.
 const wallets = createWallets({ database });
 
@@ -908,11 +916,14 @@ const turnComputerTools = async (
     throw new ApprovalRefusedError("That Bot is no longer available to you.");
   const place = await placeOfThread(threadId);
   const deskTools = place
-    ? createDeskTools(desks, {
-        ...place,
-        agentId,
-        actingFor: ownerUserId,
-      })
+    ? [
+        ...createDeskTools(desks, {
+          ...place,
+          agentId,
+          actingFor: ownerUserId,
+        }),
+        ...createTimelineTools(timeline, place),
+      ]
     : [];
   if (!computerGateway || !canUseComputer(profile, actor)) return deskTools;
   return [
@@ -2967,6 +2978,7 @@ const app = createApp(
     ],
     (requireUser) =>
       createWalletRoutes(wallets, requireUser, federatedTransfers),
+    (requireUser) => [createTimelineRoutes(timeline, requireUser)],
     // Other nodes are answered on their signatures, never a person's session.
     () => [createPeerRoutes(federation)],
     (requireUser) => createFederationRoutes(federation, requireUser),

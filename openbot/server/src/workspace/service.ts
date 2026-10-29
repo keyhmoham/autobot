@@ -68,6 +68,7 @@ import {
   spaceMembers,
   spaces,
 } from "../db/schema/workspace";
+import { TIMELINE_GUIDANCE } from "../timeline/tools";
 import {
   channelPlace,
   type Reader,
@@ -1276,6 +1277,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       row.topic?.trim() ? `The room is about: ${row.topic.trim()}` : "",
       "Everyone in the room shares the space's computer.",
       DESK_GUIDANCE,
+      TIMELINE_GUIDANCE,
     ]
       .filter(Boolean)
       .join(" ");
