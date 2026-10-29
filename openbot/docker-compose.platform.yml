@@ -1,0 +1,134 @@
+# The whole OpenDuet platform in containers, on top of docker-compose.yml.
+#
+# docker-compose.yml is the developer's stack: the database, the computers and the Bots in containers,
+# with the API server and the app run from source on the host. This file adds what that leaves out,
+# so `./openduet.sh up` brings up everything with nothing on the host but Docker:
+#
+#   server      the API, serving the built app and the model gateway on one port
+#   worker      the routines' timer, firing due routines at the server
+#   nomad       a single-node Nomad agent, when COMPUTER_BACKEND=nomad (profile `nomad`)
+#
+# and it points what is already there at them: the supervisor's computers join the stack's network so
+# the server reaches them by name, and the Bots in containers think through the server's model gateway
+# with the deployment's gateway key instead of holding a vendor key of their own.
+#
+# Secrets come from .env; ./openduet.sh up makes the ones that are missing. Ports are published on
+# loopback unless PUBLISH_HOST says otherwise, as everywhere else in this stack.
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: ${SERVER_IMAGE:-openduet-server:latest}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      supervisor:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://openbot:openbot@postgres:5432/openbot
+      KEY_ENCRYPTION_KEY: ${KEY_ENCRYPTION_KEY:?KEY_ENCRYPTION_KEY is not set; ./openduet.sh up makes one}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+      BETTER_AUTH_URL: ${OPENBOT_PUBLIC_URL:-http://localhost:3001}
+      OPENBOT_PUBLIC_URL: ${OPENBOT_PUBLIC_URL:-http://localhost:3001}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+      OPENBOT_SINGLE_USER: ${OPENBOT_SINGLE_USER:-true}
+      INITIAL_ADMIN_EMAILS: ${INITIAL_ADMIN_EMAILS:-}
+      TENANT_PACKAGE_DIR: /app/examples/openduet
+      COMPUTER_SUPERVISOR_URL: http://supervisor:4300
+      SUPERVISOR_TOKEN: ${SUPERVISOR_TOKEN:?SUPERVISOR_TOKEN is not set; ./openduet.sh up makes one}
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:?COMPUTER_TOKEN is not set; ./openduet.sh up makes one}
+      LLM_GATEWAY_KEY: ${LLM_GATEWAY_KEY:?LLM_GATEWAY_KEY is not set; ./openduet.sh up makes one}
+      WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:?WORKER_SHARED_SECRET is not set; ./openduet.sh up makes one}
+      MANAGED_AGENT_AG_UI_URL: ${MANAGED_AGENT_AG_UI_URL:-http://agent-langgraph:4201/ag-ui}
+      MANAGED_AGENT_TOKEN: ${MANAGED_AGENT_TOKEN:-}
+      AGENT_TOOL_TOKEN: ${AGENT_TOOL_TOKEN:-}
+      # Seeds the gateway's first provider on an empty registry; after that, Admin → Models holds keys.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      INTELLIGENCE_API_URL: ${INTELLIGENCE_API_URL:-}
+      INTELLIGENCE_GATEWAY_WS_URL: ${INTELLIGENCE_GATEWAY_WS_URL:-}
+      INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY:-}
+      COPILOTKIT_LICENSE_TOKEN: ${COPILOTKIT_LICENSE_TOKEN:-}
+      COMPOSIO_API_KEY: ${COMPOSIO_API_KEY:-}
+      FEDERATION_CENTRAL: ${FEDERATION_CENTRAL:-false}
+      FEDERATION_NODE_NAME: ${FEDERATION_NODE_NAME:-}
+      FEDERATION_CENTRAL_URL: ${FEDERATION_CENTRAL_URL:-}
+      FEDERATION_JOIN_CODE: ${FEDERATION_JOIN_CODE:-}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${SERVER_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "bun -e \"const r = await fetch('http://localhost:3001/health'); process.exit(r.ok ? 0 : 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    # Both: the database is on `data`, and the computers and the Bots are on `default`.
+    networks:
+      - data
+      - default
+
+  worker:
+    image: ${SERVER_IMAGE:-openduet-server:latest}
+    pull_policy: never
+    command: ["bun", "/app/worker/src/index.ts"]
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://openbot:openbot@postgres:5432/openbot
+      SERVER_INTERNAL_URL: http://server:3001
+      WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:?WORKER_SHARED_SECRET is not set; ./openduet.sh up makes one}
+    restart: unless-stopped
+    networks:
+      - data
+      - default
+
+  supervisor:
+    environment:
+      # Computers join this stack's network, so the server reaches each one by its name.
+      COMPUTER_NETWORK: ${COMPOSE_PROJECT_NAME:-openduet}_default
+      COMPUTER_BACKEND: ${COMPUTER_BACKEND:-docker}
+      NOMAD_ADDR: ${NOMAD_ADDR:-http://nomad:4646}
+      NOMAD_TOKEN: ${NOMAD_TOKEN:-}
+      COMPUTER_NOMAD_DATACENTERS: ${COMPUTER_NOMAD_DATACENTERS:-}
+      MODAL_TOKEN_ID: ${MODAL_TOKEN_ID:-}
+      MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET:-}
+      COMPUTER_MODAL_APP: ${COMPUTER_MODAL_APP:-openduet-computers}
+      COMPUTER_MODAL_REGISTRY_SECRET: ${COMPUTER_MODAL_REGISTRY_SECRET:-}
+
+  # The Bots in containers think through the server's gateway, on the deployment's key.
+  agent-bot:
+    environment:
+      OPENAI_API_KEY: ${LLM_GATEWAY_KEY:?LLM_GATEWAY_KEY is not set; ./openduet.sh up makes one}
+      OPENAI_BASE_URL: http://server:3001/api/llm/openai/v1
+
+  agent-langgraph:
+    environment:
+      BOT_PROVIDER: openai
+      OPENAI_API_KEY: ${LLM_GATEWAY_KEY:?LLM_GATEWAY_KEY is not set; ./openduet.sh up makes one}
+      OPENAI_BASE_URL: http://server:3001/api/llm/openai/v1
+      OPENBOT_TOOL_URL: http://server:3001/api/agent-tools/call
+
+  # One Nomad agent, server and client in one, for COMPUTER_BACKEND=nomad on a single machine. A real
+  # cluster is pointed at with NOMAD_ADDR instead, and this is left off.
+  nomad:
+    profiles: ["nomad"]
+    image: hashicorp/nomad:1.10.5
+    command: ["agent", "-dev", "-bind", "0.0.0.0", "-config", "/etc/nomad.d/openduet.hcl"]
+    # The docker driver starts the computers' containers on this host's engine, as the supervisor does
+    # under Docker. Privileged because a Nomad client manages cgroups and mounts for what it runs.
+    privileged: true
+    volumes:
+      - ${ENGINE_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - ./deploy/nomad/openduet.hcl:/etc/nomad.d/openduet.hcl:ro
+      - ${NOMAD_DATA_DIR:-/tmp/openduet-nomad}:/var/lib/nomad
+    ports:
+      - "127.0.0.1:${NOMAD_PORT:-4646}:4646"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4646/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped

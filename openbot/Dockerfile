@@ -53,6 +53,7 @@ WORKDIR /src
 COPY package.json bun.lock ./
 COPY tsconfig.base.json bunfig.toml ./
 COPY app/package.json app/package.json
+COPY cli/package.json cli/package.json
 COPY server/package.json server/package.json
 COPY worker/package.json worker/package.json
 COPY shared/package.json shared/package.json
@@ -70,8 +71,9 @@ RUN cd agent-computer && bun install --frozen-lockfile
 # A second tree with the build-time dependencies left out, for the runtime stage to take. Vite,
 # biome and the test tooling are a gigabyte that nothing in a running container imports.
 RUN mkdir -p /prod && cp package.json bun.lock /prod/ \
-  && cd /prod && mkdir -p app server worker shared toolkit \
+  && cd /prod && mkdir -p app cli server worker shared toolkit \
   && cp /src/app/package.json app/package.json \
+  && cp /src/cli/package.json cli/package.json \
   && cp /src/server/package.json server/package.json \
   && cp /src/worker/package.json worker/package.json \
   && cp /src/shared/package.json shared/package.json \

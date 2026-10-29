@@ -34,6 +34,7 @@ import {
   readAuditExportRows,
   recordAuditEvent,
 } from "./audit";
+import { type AccessTokens, withAccessTokens } from "./auth/access-tokens";
 import { createDevRequireUser } from "./auth/dev-actor";
 import {
   type AppVariables,
@@ -497,6 +498,8 @@ export function createApp(
   }[])[] = [],
   /** Who may watch, drive and manage a space's computer through the computer routes. */
   spaceComputerAccess?: SpaceComputerAccess,
+  /** Personal access tokens, taken as a bearer wherever a signed-in person is (auth/access-tokens.ts). */
+  accessTokens?: AccessTokens,
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
   /*
@@ -679,11 +682,14 @@ export function createApp(
     context.json({ error: "No identity provider is configured." }, 503);
   // One administrator, when nothing is configured to sign anybody in. Checked first, and only ever
   // true when there is no provider, so a configured deployment cannot fall back to it.
-  const requireUser = config.singleUser
+  const requireSession = config.singleUser
     ? createDevRequireUser()
     : auth && roleRepository
       ? createRequireUser(auth, roleRepository)
       : authenticationUnavailable;
+  const requireUser = accessTokens
+    ? withAccessTokens(requireSession, accessTokens)
+    : requireSession;
   // Enterprise controls: capability switches and the model allowlist in front of the routes they
   // govern, the admin screen's API, and the SCIM verbs the GET/POST auth handler above does not take.
   app.use("/api/*", createEnterpriseGate(requireUser));

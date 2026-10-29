@@ -28,10 +28,11 @@ function packagesStartedBy(script: string, workspaces: string[]): string[] {
 }
 
 describe("OpenBot workspace", () => {
-  test("defines the app, server, worker, shared and toolkit packages", () => {
+  test("defines the app, cli, server, worker, shared and toolkit packages", () => {
     const manifest = rootManifest();
     const names: Record<string, string> = {
       app: "app",
+      cli: "@openbot/cli",
       server: "server",
       worker: "worker",
       shared: "@openbot/shared",

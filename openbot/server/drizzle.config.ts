@@ -49,6 +49,7 @@ export default defineConfig({
     "./src/db/schema/timeline.ts",
     "./src/db/schema/social.ts",
     "./src/db/schema/apps.ts",
+    "./src/db/schema/access-tokens.ts",
   ],
   out: "./drizzle",
   dbCredentials: {

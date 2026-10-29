@@ -1,0 +1,17 @@
+{
+  "name": "@openbot/cli",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "openduet": "src/index.ts"
+  },
+  "scripts": {
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile dist/openduet",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openbot/shared": "workspace:*"
+  }
+}

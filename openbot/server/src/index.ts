@@ -63,6 +63,10 @@ import { createApprovalStore } from "./approvals/store";
 import { ApprovalRefusedError } from "./approvals/types";
 import { createServerApprovalService } from "./approvals/wiring";
 import { createAppLinks } from "./apps/links";
+import {
+  createAccessTokenRoutes,
+  createAccessTokens,
+} from "./auth/access-tokens";
 import { createAppRoutes, createAppViewRoutes } from "./apps/routes";
 import { createApps } from "./apps/service";
 import { createAppTools } from "./apps/tools";
@@ -755,6 +759,9 @@ const gatewayTokens = createGatewayTokens({
     ? { deploymentKey: process.env.LLM_GATEWAY_KEY.trim() }
     : {}),
 });
+// How the CLI and a person's scripts act as them: see auth/access-tokens.ts.
+const accessTokens = createAccessTokens({ database });
+
 // Every space's timeline, filled from what the deployment already records: see timeline/feeds.ts.
 const timeline = createTimeline({ database });
 createTimelineFeeds({ database, timeline }).start();
@@ -3007,6 +3014,7 @@ const app = createApp(
     (requireUser) =>
       createWalletRoutes(wallets, requireUser, federatedTransfers),
     (requireUser) => [createTimelineRoutes(timeline, requireUser)],
+    (requireUser) => [createAccessTokenRoutes(accessTokens, requireUser)],
     (requireUser) => createSocialRoutes(social, requireUser),
     (requireUser) => [createAppRoutes(apps, requireUser)],
     // An app is served on its link alone, never on a person's session.
@@ -3026,6 +3034,7 @@ const app = createApp(
       ),
   ],
   (userId, spaceId, need) => workspace.computerAccess(userId, spaceId, need),
+  accessTokens,
 );
 
 const { addresses: listening } = startHttpServer({

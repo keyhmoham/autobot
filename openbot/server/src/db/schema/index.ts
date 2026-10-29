@@ -31,3 +31,4 @@ export * from "./voice";
 export * from "./wallet";
 export * from "./work";
 export * from "./workspace";
+export * from "./access-tokens";

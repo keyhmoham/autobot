@@ -17,6 +17,7 @@ COPY package.json bun.lock ./
 COPY tsconfig.base.json tsconfig.base.json
 COPY bunfig.toml bunfig.toml
 COPY app/package.json app/package.json
+COPY cli/package.json cli/package.json
 COPY server/package.json server/package.json
 COPY worker/package.json worker/package.json
 COPY shared/package.json shared/package.json
@@ -58,6 +59,9 @@ COPY server server
 COPY shared shared
 COPY toolkit toolkit
 COPY examples examples
+# The routines' timer runs from this image too (docker-compose.platform.yml `worker`).
+COPY worker/src worker/src
+COPY worker/package.json worker/package.json
 
 # The built app, served by the process below. `APP_DIST_DIR` is what turns that on, so an image
 # without this layer is still a working API.
