@@ -1,7 +1,6 @@
 import type { Page } from "playwright";
 import type { BrowserChallenge } from "../../shared/computer-control";
 import type { Control } from "./control";
-
 type Signal = {
   cfMitigated?: string | null;
   text: string;

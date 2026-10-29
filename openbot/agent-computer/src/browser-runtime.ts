@@ -1,4 +1,4 @@
-import { type BrowserMode, browserModeFromEnv } from "./browser-mode";
+import { browserModeFromEnv, type BrowserMode } from "./browser-mode";
 
 export type BrowserRuntime = {
   backend: "managed" | "local-chrome";
