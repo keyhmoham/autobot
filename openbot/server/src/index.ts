@@ -162,6 +162,9 @@ import type { DeliveryScope } from "./delivery/types";
 import { DeliveryRefusedError } from "./delivery/types";
 import { createDemonstrationRecorder } from "./demonstrations/recording";
 import { createDemonstrationStore } from "./demonstrations/store";
+import { createFederationRoutes, createPeerRoutes } from "./federation/routes";
+import { createFederation } from "./federation/service";
+import { createFederatedTransfers } from "./federation/transfers";
 import {
   createHostAccessBroker,
   HostAccessRefusedError,
@@ -744,6 +747,52 @@ const gatewayTokens = createGatewayTokens({
 });
 // Every credit that moves, moves here: see wallet/service.ts.
 const wallets = createWallets({ database });
+
+/*
+ * This deployment as a node of a federation: see federation/service.ts. Every node has an identity
+ * from its first start; FEDERATION_CENTRAL makes this one the centre others join, and
+ * FEDERATION_CENTRAL_URL with FEDERATION_JOIN_CODE joins one at start-up rather than from Admin →
+ * Federation, for a deployment brought up by a script.
+ */
+const federation = await createFederation({
+  database,
+  encryptionKey: config.keyEncryptionKey,
+  publicUrl: config.publicUrl,
+  name:
+    process.env.FEDERATION_NODE_NAME?.trim() ||
+    (config.publicUrl ? new URL(config.publicUrl).host : "OpenDuet"),
+  central: process.env.FEDERATION_CENTRAL === "true",
+});
+const federatedTransfers = createFederatedTransfers({
+  database,
+  federation,
+  wallets,
+});
+{
+  const centralUrl = process.env.FEDERATION_CENTRAL_URL?.trim();
+  const code = process.env.FEDERATION_JOIN_CODE?.trim();
+  if (centralUrl && code && !federation.self().id)
+    await federation.join({ centralUrl, code }).catch((error) =>
+      console.warn(
+        JSON.stringify({
+          type: "federation-join-failed",
+          error: String(error),
+        }),
+      ),
+    );
+  let busy = false;
+  setInterval(() => {
+    if (busy || !federation.self().id) return;
+    busy = true;
+    void Promise.allSettled([
+      federation.heartbeat(),
+      federation.pushLedger(),
+      federatedTransfers.retry(),
+    ]).finally(() => {
+      busy = false;
+    });
+  }, 60_000);
+}
 const modelGateway = createModelGateway({
   database,
   registry: llmRegistry,
@@ -2916,7 +2965,11 @@ const app = createApp(
         ),
       },
     ],
-    (requireUser) => createWalletRoutes(wallets, requireUser),
+    (requireUser) =>
+      createWalletRoutes(wallets, requireUser, federatedTransfers),
+    // Other nodes are answered on their signatures, never a person's session.
+    () => [createPeerRoutes(federation)],
+    (requireUser) => createFederationRoutes(federation, requireUser),
     (requireUser) =>
       createWorkspaceRoutes(
         {

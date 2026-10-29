@@ -45,6 +45,7 @@ export default defineConfig({
     "./src/db/schema/workspace.ts",
     "./src/db/schema/llm.ts",
     "./src/db/schema/wallet.ts",
+    "./src/db/schema/federation.ts",
   ],
   out: "./drizzle",
   dbCredentials: {

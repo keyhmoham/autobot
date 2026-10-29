@@ -20,6 +20,7 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { users } from "./core";
 import { spaces } from "./workspace";
@@ -65,6 +66,11 @@ export const ledgerEntries = pgTable(
     index("ledger_entries_to_idx").on(table.toUserId, table.seq),
     index("ledger_entries_space_idx").on(table.spaceId, table.createdAt),
     index("ledger_entries_created_idx").on(table.createdAt),
+    // What a charge or a delivery settled is settled once: a second replica charging the same
+    // computer minute, or a transfer delivered twice, is refused here rather than paid twice.
+    uniqueIndex("ledger_entries_reference_unique")
+      .on(table.reference)
+      .where(sql`${table.reference} is not null`),
     check("ledger_entries_amount_check", sql`${table.amount} > 0`),
     check(
       "ledger_entries_type_check",

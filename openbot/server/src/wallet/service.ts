@@ -401,12 +401,7 @@ export function createWallets(deps: { database: Database; now?: () => Date }) {
     note?: string;
   }) {
     const credits = amount.parse(input.amount);
-    const [recipient] = await database
-      .select({ id: users.id, name: users.name, email: users.email })
-      .from(users)
-      .where(eq(sql`lower(${users.email})`, input.to.trim().toLowerCase()));
-    if (!recipient)
-      throw new WalletError(404, "Nobody here has that email address.");
+    const recipient = { id: await recipientByEmail(input.to) };
     if (recipient.id === input.fromUserId)
       throw new WalletError(400, "Credits cannot be sent to yourself.");
     await open(input.fromUserId);
@@ -430,6 +425,80 @@ export function createWallets(deps: { database: Database; now?: () => Date }) {
       });
     });
     return wallet(input.fromUserId);
+  }
+
+  /**
+   * Credits leaving this node for somebody on another one: taken from the sender like a transfer,
+   * with nobody here on the other side. `reference` names the delivery that carries them, and
+   * `record` writes that delivery in the same transaction, so credits are never taken without one
+   * nor sent without having been taken.
+   */
+  async function sendAway(input: {
+    fromUserId: string;
+    amount: number;
+    description: string;
+    reference: string;
+    record: (tx: Transaction) => Promise<void>;
+  }) {
+    const credits = amount.parse(input.amount);
+    await open(input.fromUserId);
+    await database.transaction(async (tx) => {
+      const [sender] = await tx
+        .select({ balance: wallets.balance })
+        .from(wallets)
+        .where(eq(wallets.userId, input.fromUserId))
+        .for("update");
+      if (!sender || sender.balance < credits)
+        throw new WalletError(402, "Your wallet does not hold that much.");
+      await drawGrants(tx, input.fromUserId, credits);
+      await post(tx, {
+        type: "transfer",
+        amount: credits,
+        fromUserId: input.fromUserId,
+        description: input.description,
+        reference: input.reference,
+      });
+      await input.record(tx);
+    });
+  }
+
+  /**
+   * Credits arriving from outside this node's wallets: a delivery from another node, or a delivery
+   * that was refused coming back. Settled once per `reference`, so delivering again pays nothing more.
+   */
+  async function creditIn(input: {
+    userId: string;
+    amount: number;
+    description: string;
+    reference: string;
+  }) {
+    const credits = amount.parse(input.amount);
+    await open(input.userId);
+    await database.transaction(async (tx) => {
+      const [settled] = await tx
+        .select({ id: ledgerEntries.id })
+        .from(ledgerEntries)
+        .where(eq(ledgerEntries.reference, input.reference));
+      if (settled) return;
+      await post(tx, {
+        type: "transfer",
+        amount: credits,
+        toUserId: input.userId,
+        description: input.description,
+        reference: input.reference,
+      });
+    });
+  }
+
+  /** Whose wallet an email address names here, or a refusal saying nobody's. */
+  async function recipientByEmail(email: string) {
+    const [recipient] = await database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(sql`lower(${users.email})`, email.trim().toLowerCase()));
+    if (!recipient)
+      throw new WalletError(404, "Nobody here has that email address.");
+    return recipient.id;
   }
 
   /**
@@ -665,6 +734,9 @@ export function createWallets(deps: { database: Database; now?: () => Date }) {
     grants,
     mint,
     transfer,
+    sendAway,
+    creditIn,
+    recipientByEmail,
     admit,
     charge,
     expireGrants,

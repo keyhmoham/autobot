@@ -10,6 +10,7 @@ export * from "./coworker";
 export * from "./defaults";
 export * from "./delivery";
 export * from "./demonstrations";
+export * from "./federation";
 export * from "./identity";
 export * from "./learning";
 export * from "./lifecycle";

@@ -5,6 +5,8 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
 import { type AppVariables, requireAdmin } from "../auth/guards";
+import { FederationError } from "../federation/service";
+import type { FederatedTransfers } from "../federation/transfers";
 import type { RouteMount } from "../workspace/routes";
 import { workspaceErrorStatus } from "../workspace/routes";
 import { WalletError, type Wallets } from "./service";
@@ -16,7 +18,7 @@ function walletRoutes(requireUser: MiddlewareHandler<Env>) {
   const routes = new Hono<Env>();
   routes.use("*", requireUser);
   routes.onError((error, context) => {
-    if (error instanceof WalletError)
+    if (error instanceof WalletError || error instanceof FederationError)
       return context.json({ error: error.message }, error.status);
     const status = workspaceErrorStatus(error);
     if (status === 500) console.error(error);
@@ -47,6 +49,8 @@ const transfer = z.object({
   to: z.string().min(1, "Say who the credits are for."),
   amount: z.number(),
   note: z.string().max(200).optional(),
+  /** Another node of the federation the recipient is on; absent is this one. */
+  node: z.string().min(1).optional(),
 });
 
 const mint = z.object({
@@ -59,6 +63,8 @@ const mint = z.object({
 export function createWalletRoutes(
   wallets: Wallets,
   requireUser: MiddlewareHandler<Env>,
+  /** Sending to another node, when this one is part of a federation. */
+  federated?: FederatedTransfers,
 ): RouteMount[] {
   const mine = walletRoutes(requireUser);
   mine.get("/", async (c) => {
@@ -80,10 +86,19 @@ export function createWalletRoutes(
     }),
   );
   mine.post("/transfers", async (c) => {
-    const input = transfer.parse(await body(c));
-    return c.json({
-      wallet: await wallets.transfer({ fromUserId: c.var.actor.id, ...input }),
-    });
+    const { node, ...input } = transfer.parse(await body(c));
+    const fromUserId = c.var.actor.id;
+    if (!node)
+      return c.json({
+        wallet: await wallets.transfer({ fromUserId, ...input }),
+      });
+    if (!federated)
+      throw new WalletError(
+        400,
+        "This deployment is not part of a federation.",
+      );
+    const sent = await federated.send({ fromUserId, nodeId: node, ...input });
+    return c.json({ wallet: await wallets.wallet(fromUserId), transfer: sent });
   });
 
   const budgets = walletRoutes(requireUser);
