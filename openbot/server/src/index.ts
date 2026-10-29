@@ -87,11 +87,14 @@ import {
   createChannelEventHub,
   startChannelActivityListener,
 } from "./channels/events";
+import { createInvitations } from "./workspace/invitations";
+import { createWorkspaceRoutes } from "./workspace/routes";
+import { createWorkspace } from "./workspace/service";
 import {
-  createGroupConversations,
-  createGroupStore,
-  groupSourceForRun,
-} from "./channels/group";
+  conversationSourceForRun,
+  createConversationStore,
+  createConversations,
+} from "./channels/conversation";
 import {
   type ChannelStore,
   createChannelStore,
@@ -674,11 +677,11 @@ const channelSourceForRun = async (run: RunAssertion) => {
 };
 
 /*
- * A run's source conversation: a channel's own thread, or a Bot's thread in a group conversation.
- * The group lookup applies the same live-membership and own-Bot checks. See channels/group.ts.
+ * A run's source conversation: a channel's own thread, or a Bot's thread in a shared channel. The
+ * shared lookup applies the same live-membership and own-Bot checks. See channels/conversation.ts.
  */
 const sourceForCoordinationRun = async (run: RunAssertion) =>
-  (await channelSourceForRun(run)) ?? groupSourceForRun(database, run);
+  (await channelSourceForRun(run)) ?? conversationSourceForRun(database, run);
 
 const authoriseQuestion = async (question: PersonQuestion) => {
   const source = await sourceForCoordinationRun({
@@ -1580,7 +1583,7 @@ const signRunForActor =
   (
     actorId: string,
     initiator: AuditInitiator = PERSON_INITIATOR,
-    // How deep in a Bot-to-Bot chain a headless turn already is; see createGroupConversations.
+    // How deep in a Bot-to-Bot chain a headless turn already is; see createConversations.
     depth?: number,
   ) =>
   (
@@ -1989,21 +1992,22 @@ const openDuetChannels = createDuetChannelStore({
  * own group thread, built exactly as a routine's is, so governance, learning and the computer tools
  * apply unchanged; Bots answering each other reuse the handoff desk's grant and caps.
  */
-const groupConversations = createGroupConversations({
-  store: createGroupStore(database, () => threadIdentity.mint()),
+const workspace = createWorkspace({
+  database,
+  actorFor,
+  profiles: agentProfileStore,
+  auditStore: bootAuditStore,
+  greet: ({ actorUserId, channelId, name, purpose }) =>
+    conversations.greet(actorUserId, channelId, { name, purpose }),
+});
+const invitations = createInvitations({ database, workspace });
+
+const conversations = createConversations({
+  store: createConversationStore(database, () => threadIdentity.mint()),
   queue: createWorkQueue(database),
-  owner: workOwner("group"),
-  roster: async (ownerUserId, channelId) => {
-    const actor = await actorFor(ownerUserId);
-    const channel = await channelStore.get(actor, channelId);
-    if (!channel || channel.agentIds.length < 2) return null;
-    const bots: { id: string; name: string }[] = [];
-    for (const agentId of channel.agentIds) {
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (profile) bots.push({ id: agentId, name: profile.name });
-    }
-    return bots;
-  },
+  owner: workOwner("conversation"),
+  roster: (actorUserId, channelId) => workspace.roster(actorUserId, channelId),
+  describe: (channelId) => workspace.describe(channelId),
   runTurn: createTurnRunner({
     admission: serverTurnAdmission,
     intelligence: routineIntelligence,
@@ -2038,25 +2042,23 @@ const groupConversations = createGroupConversations({
   auditStore: bootAuditStore,
   activity: async (turn, agentId, text, sourceId) =>
     channelStore.recordActivity(
-      await actorFor(turn.ownerUserId),
+      await actorFor(turn.actorUserId),
       turn.channelId,
       { text, agentId, at: new Date() },
       { id: sourceId },
     ),
   busy: async (turn, busy) =>
     channelStore.signalChannelBusy(
-      await actorFor(turn.ownerUserId),
+      await actorFor(turn.actorUserId),
       turn.channelId,
       busy,
-      `group:${turn.messageId}`,
+      `conversation:${turn.messageId}`,
     ),
-  createChannel: async (ownerUserId, agentIds) =>
-    channelStore.create(await actorFor(ownerUserId), agentIds),
-  // The owner says whether a Bot's words may reach the other people in a group.
+  // The person says whether a Bot's words may reach the other people in a channel.
   privateShare: createPrivateShareCheck({ approvals: approvalService.store }),
-  // A Team Bot's consent card raised in a group turn is drawn in the shared transcript.
-  listenForConsent: (ownerUserId, agentId) =>
-    teamBots.listenForConsent(ownerUserId, agentId),
+  // A Team Bot's consent card raised in a shared turn is drawn in the shared transcript.
+  listenForConsent: (actorUserId, agentId) =>
+    teamBots.listenForConsent(actorUserId, agentId),
 });
 
 const approvalSweep = repeatAfterEach(
@@ -2067,7 +2069,7 @@ const approvalSweep = repeatAfterEach(
     executeApprovedAction,
     database,
     responsibilityStore,
-    groupConversations,
+    conversations,
     // The continuation after a decision is server work the browser never started: announce it.
     approvalContinuationRunner: signallingBusy(
       approvalContinuationRunner,
@@ -2355,13 +2357,13 @@ const deliverySweeps = DELIVERY_WORK_KINDS.map((kind) =>
 );
 
 const personResponseOwner = workOwner("person-response");
-const groupSweep = repeatAfterEach(async () => {
+const conversationSweep = repeatAfterEach(async () => {
   try {
-    while (await groupConversations.sweep()) {}
+    while (await conversations.sweep()) {}
   } catch (error) {
     console.error(
       JSON.stringify({
-        type: "group-sweep-error",
+        type: "conversation-sweep-error",
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
       }),
@@ -2421,7 +2423,7 @@ if (config.handoff.maxDepth > 0 && config.handoff.maxPerRun > 0) {
     actorFor,
     copilotRuntime,
     threadIdentity,
-    groupConversations,
+    conversations,
     channelStore,
   });
 }
@@ -2767,7 +2769,7 @@ const app = createApp(
       bindings: responsibilityBindings,
       triggers: responsibilityTriggers,
     },
-    groups: groupConversations,
+    conversations,
     teamBots,
     lifecycle: {
       lifecycle: createBotLifecycleStore(database),
@@ -2789,6 +2791,7 @@ const app = createApp(
 
   identityStore,
   identityGithubCallback,
+  [(requireUser) => createWorkspaceRoutes(workspace, invitations, requireUser)],
 );
 
 const { addresses: listening } = startHttpServer({
@@ -2831,7 +2834,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     proactiveSweep.stop();
     approvalSweep.stop();
     personResponseSweep.stop();
-    groupSweep.stop();
+    conversationSweep.stop();
     for (const sweep of deliverySweeps) sweep.stop();
     void Promise.allSettled([
       channelActivityListener.stop(),

@@ -50,7 +50,10 @@ import {
   createChannelAttachmentRoutes,
 } from "./channels/attachments";
 import type { ChannelEventHub } from "./channels/events";
-import { createGroupRoutes, type GroupConversations } from "./channels/group";
+import {
+  type Conversations,
+  createConversationRoutes,
+} from "./channels/conversation";
 import { type ChannelStore, createChannelRoutes } from "./channels/routes";
 import type { ThreadIdentity } from "./channels/thread-identity";
 import { createThreadRoutes } from "./channels/thread-routes";
@@ -446,7 +449,8 @@ export function createApp(
         emailRoutes: Hono | null;
       };
     };
-    groups?: GroupConversations;
+    /** Shared `room` and `direct` channels: their transcript and saying something in them. */
+    conversations?: Conversations;
     teamBots?: TeamBots;
     /** Pause, reset, Activity and attention for a person's own Bots. See agents/lifecycle.ts. */
     lifecycle?: BotLifecycleServices;
@@ -477,6 +481,17 @@ export function createApp(
   identity?: IdentityStore,
   /** The GitHub sign-in callback, built by the caller; mounted behind requireUser ahead of /api/identity. */
   identityGithubCallback?: Hono<{ Variables: AppVariables }>,
+  /**
+   * Whole modules that bring their own routes: the workspace, the model gateway, wallets and the rest.
+   * Each is handed the deployment's `requireUser` and answers with where its routes go, so adding one
+   * is one entry in the caller's list and nothing here. Mounted before the app's static catch-all.
+   */
+  modules: readonly ((
+    requireUser: MiddlewareHandler<{ Variables: AppVariables }>,
+  ) => readonly {
+    path: string;
+    routes: Hono<{ Variables: AppVariables }>;
+  }[])[] = [],
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
   /*
@@ -1653,8 +1668,11 @@ export function createApp(
       "/api/bots",
       createBotLifecycleRoutes(coworker.lifecycle, requireUser),
     );
-  if (coworker?.groups)
-    app.route("/api/groups", createGroupRoutes(coworker.groups, requireUser));
+  if (coworker?.conversations)
+    app.route(
+      "/api/conversations",
+      createConversationRoutes(coworker.conversations, requireUser),
+    );
   if (coworker?.teamBots)
     app.route(
       "/api/team-bots",
@@ -2027,6 +2045,10 @@ export function createApp(
    * Absent in development: Vite serves the app and proxies `/api` here, so `APP_DIST_DIR` is unset
    * and none of this mounts.
    */
+  for (const module of modules)
+    for (const mount of module(requireUser))
+      app.route(mount.path, mount.routes);
+
   if (config.appDistDir) {
     const root = config.appDistDir;
     app.use("/*", serveStatic({ root }));

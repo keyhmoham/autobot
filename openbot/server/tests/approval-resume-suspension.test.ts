@@ -77,7 +77,7 @@ describe("carrying a decision out, when the conversation stops on another", () =
       executeApprovedAction: (async () => "") as never,
       database: database as never,
       responsibilityStore: {} as never,
-      groupConversations: {
+      conversations: {
         continueWaiting: async (_id: string, run: () => Promise<unknown>) =>
           run() as never,
       },

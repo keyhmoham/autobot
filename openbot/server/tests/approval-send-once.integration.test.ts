@@ -240,7 +240,7 @@ async function carryOn(approvalId: string) {
     executeApprovedAction,
     database,
     responsibilityStore: {} as never,
-    groupConversations: { continueWaiting: (_id, run) => run() },
+    conversations: { continueWaiting: (_id, run) => run() },
     approvalContinuationRunner: bot,
     channelStore: { recordActivity: async () => undefined } as never,
     actorFor: async () => ({ id: owner }) as never,

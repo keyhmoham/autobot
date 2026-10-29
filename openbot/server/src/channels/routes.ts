@@ -1139,8 +1139,26 @@ export function createChannelStore(
       busy,
       runId = `legacy:${actor.id}`,
     ) {
-      const channel = await store.get(actor, channelId);
-      if (!channel) throw new ChannelNotFoundError(channelId);
+      // Membership rather than `get`, which reads a person's own conversation through its thread
+      // mapping: a shared channel has none, and its members say they are busy in it too.
+      const [member] = await database
+        .select({ channelId: channelMemberships.channelId })
+        .from(channelMemberships)
+        .innerJoin(
+          channels,
+          and(
+            eq(channels.id, channelMemberships.channelId),
+            isNull(channels.deletedAt),
+          ),
+        )
+        .where(
+          and(
+            eq(channelMemberships.channelId, channelId),
+            eq(channelMemberships.userId, actor.id),
+          ),
+        )
+        .limit(1);
+      if (!member) throw new ChannelNotFoundError(channelId);
       await announceBusy(channelId, busy, runId);
     },
   };

@@ -47,6 +47,37 @@ export type ChannelActivityEvent = {
 };
 
 /** "The roster you hold may be wrong." Carries no delta, because what was lost is not recoverable. */
+/**
+ * What changed in a space, for the people in it: a room or channel made, renamed or removed, somebody
+ * joining or leaving, a desk or an app changing. It carries no content, only what to refetch, so a
+ * client that misses one loses nothing a refetch does not restore. Sent on the same topic and the same
+ * socket as channel activity, told apart by `type`.
+ */
+export const WORKSPACE_CHANGES = [
+  "space",
+  "rooms",
+  "members",
+  "agents",
+  "invitations",
+  "desk",
+  "apps",
+  "computer",
+] as const;
+export type WorkspaceChange = (typeof WORKSPACE_CHANGES)[number];
+
+export type WorkspaceEvent = {
+  type: "workspace";
+  memberIds: string[];
+  spaceId: string;
+  roomId?: string;
+  change: WorkspaceChange;
+  /** The desk's version after the change, so a client already holding it skips the refetch. */
+  version?: number;
+};
+
+/** Anything delivered to a set of people over their channel socket. */
+export type MemberEvent = ChannelActivityEvent | WorkspaceEvent;
+
 export type ChannelResyncEvent = { resync: true };
 
 const RESYNC_PAYLOAD = JSON.stringify({
@@ -59,7 +90,7 @@ export type ChannelEventHub = {
   /** Attach a connection for a person. Returns the detach. */
   register(userId: string, send: Send): () => void;
   /** Fan one event out to this instance's own connections. */
-  deliver(event: ChannelActivityEvent): void;
+  deliver(event: MemberEvent): void;
   /** Tell every connection to refetch. Everybody, because the lost events named their own members. */
   resyncAll(): void;
   connectionCount(userId: string): number;
@@ -151,7 +182,7 @@ export async function startChannelActivityListener(
     CHANNEL_ACTIVITY_TOPIC,
     (payload) => {
       try {
-        hub.deliver(JSON.parse(payload) as ChannelActivityEvent);
+        hub.deliver(JSON.parse(payload) as MemberEvent);
       } catch {
         // A payload we cannot read is not a reason to tear down the subscription: the roster query
         // is still correct, and the next refetch shows whatever this event would have.

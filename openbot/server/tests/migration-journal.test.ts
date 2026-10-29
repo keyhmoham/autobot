@@ -370,13 +370,24 @@ const everyIndexName = (snapshot: Snapshot) =>
  * has to show up in the snapshot pair.
  */
 const disagreements = (sql: string, before: Snapshot, after: Snapshot) => {
-  const created = quoted(
-    sql,
-    /CREATE TABLE (?:IF NOT EXISTS )?"([^"]+)"/gi,
-  ).map(([table]) => table!);
-  const dropped = quoted(sql, /DROP TABLE (?:IF EXISTS )?"([^"]+)"/gi).map(
-    ([table]) => table!,
-  );
+  /*
+   * A renamed table is the old name gone and the new one arrived, as far as the table list is
+   * concerned: its columns and indexes are the ones it had, under statements that name the new table
+   * or none at all, so it is held to the same rules as one created and one dropped.
+   */
+  const renamed = quoted(sql, /ALTER TABLE "([^"]+)" RENAME TO "([^"]+)"/gi);
+  const created = [
+    ...quoted(sql, /CREATE TABLE (?:IF NOT EXISTS )?"([^"]+)"/gi).map(
+      ([table]) => table!,
+    ),
+    ...renamed.map(([, to]) => to!),
+  ];
+  const dropped = [
+    ...quoted(sql, /DROP TABLE (?:IF EXISTS )?"([^"]+)"/gi).map(
+      ([table]) => table!,
+    ),
+    ...renamed.map(([from]) => from!),
+  ];
   /*
    * The third capture is everything the statement says after the name — the type, and whatever
    * `DEFAULT` and `NOT NULL` follow it. See {@link declared}: the name alone says a column arrived

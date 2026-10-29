@@ -1,20 +1,32 @@
+/**
+ * Shared conversations: what the people in a `room` or `direct` channel read, and the thread each
+ * Bot keeps per person. The engine is channels/conversation.ts.
+ */
 import { sql } from "drizzle-orm";
 import {
   check,
+  index,
   pgTable,
+  primaryKey,
   text,
   timestamp,
-  primaryKey,
   uniqueIndex,
-  index,
 } from "drizzle-orm/pg-core";
 import { channels, users } from "./core";
 import { jsonb } from "./json";
 
-export const groupBotThreads = pgTable(
-  "group_bot_threads",
+/**
+ * The thread a Bot answers one person in, in one shared channel.
+ *
+ * Per person and not per channel, because an Intelligence thread belongs to the person it runs as:
+ * a Bot answering Ana draws on Ana's memory and connected accounts, and the thread that holds that is
+ * hers. What everybody in the channel reads is `channel_messages`, handed to each turn as quoted
+ * context, so the Bot still knows the whole conversation.
+ */
+export const channelAgentThreads = pgTable(
+  "channel_agent_threads",
   {
-    ownerUserId: text("owner_user_id")
+    actorUserId: text("actor_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     channelId: text("channel_id")
@@ -28,20 +40,27 @@ export const groupBotThreads = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.ownerUserId, table.channelId, table.agentId],
+      columns: [table.actorUserId, table.channelId, table.agentId],
     }),
-    uniqueIndex("group_bot_threads_thread_idx").on(table.threadId),
+    uniqueIndex("channel_agent_threads_thread_idx").on(table.threadId),
   ],
 );
 
-export const groupMessages = pgTable(
-  "group_messages",
+/**
+ * The shared transcript: one row per thing said, by a person or by a Bot.
+ *
+ * `actor_user_id` is the person a row speaks for: who wrote it, or whose turn the Bot was answering.
+ * A Bot's line is shown to the channel only once that person allowed it (see `privateShare` in
+ * channels/conversation.ts), which is why the row has to know who that is.
+ */
+export const channelMessages = pgTable(
+  "channel_messages",
   {
     id: text("id").primaryKey(),
     channelId: text("channel_id")
       .notNull()
       .references(() => channels.id, { onDelete: "cascade" }),
-    ownerUserId: text("owner_user_id")
+    actorUserId: text("actor_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     agentId: text("agent_id"),
@@ -57,13 +76,13 @@ export const groupMessages = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("group_messages_channel_idx").on(
+    index("channel_messages_channel_idx").on(
       table.channelId,
       table.createdAt,
       table.id,
     ),
     check(
-      "group_messages_status_check",
+      "channel_messages_status_check",
       sql`${table.status} IN ('queued', 'running', 'waiting', 'completed', 'failed')`,
     ),
   ],

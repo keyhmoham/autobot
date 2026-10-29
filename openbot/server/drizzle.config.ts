@@ -33,7 +33,7 @@ export default defineConfig({
     "./src/db/schema/proactive.ts",
     "./src/db/schema/demonstrations.ts",
     "./src/db/schema/delivery.ts",
-    "./src/db/schema/group.ts",
+    "./src/db/schema/conversation.ts",
     "./src/db/schema/admin.ts",
     "./src/db/schema/scim.ts",
     "./src/db/schema/lifecycle.ts",
@@ -42,6 +42,7 @@ export default defineConfig({
     "./src/db/schema/shared-use.ts",
     "./src/db/schema/identity.ts",
     "./src/db/schema/openduet.ts",
+    "./src/db/schema/workspace.ts",
   ],
   out: "./drizzle",
   dbCredentials: {

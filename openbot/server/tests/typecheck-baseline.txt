@@ -136,7 +136,6 @@ server/tests/enterprise-controls.integration.test.ts: error TS2345: Argument of 
 server/tests/enterprise-controls.integration.test.ts: error TS2769: No overload matches this call.
 server/tests/google-drive-rest.test.ts: error TS2345: Argument of type '{ provenance: string; url: string; }' is not assignable to parameter of type '{ provenance: string; url: string; authScheme: string | null; accountMode?: string | null | undefined; }'.
 server/tests/google-drive-rest.test.ts: error TS2345: Argument of type '{ provenance: string; url: string; }' is not assignable to parameter of type '{ provenance: string; url: string; authScheme: string | null; accountMode?: string | null | undefined; }'.
-server/tests/group-conversations.integration.test.ts: error TS2339: Property 'serverId' does not exist on type 'object'.
 server/tests/headless-components.integration.test.ts: error TS2352: Conversion of type 'BaseEvent' to type '{ delta: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 server/tests/headless-components.integration.test.ts: error TS2741: Property 'preconnect' is missing in type '(url: URL | RequestInfo, init: RequestInit | BunFetchRequestInit | undefined) => Promise<Response>' but required in type 'typeof fetch'.
 server/tests/headless-components.integration.test.ts: error TS6142: Module '../../app/src/components/gallery/charts' was resolved to 'app/src/components/gallery/charts.tsx', but '--jsx' is not set.
