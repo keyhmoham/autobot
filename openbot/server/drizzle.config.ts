@@ -44,6 +44,7 @@ export default defineConfig({
     "./src/db/schema/openduet.ts",
     "./src/db/schema/workspace.ts",
     "./src/db/schema/llm.ts",
+    "./src/db/schema/wallet.ts",
   ],
   out: "./drizzle",
   dbCredentials: {

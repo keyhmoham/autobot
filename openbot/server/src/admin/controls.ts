@@ -27,7 +27,7 @@ import {
   recordAuditEvent,
 } from "../audit";
 import { isConfiguredAdmin } from "../auth/roles";
-import { isSpaceComputer } from "../computer/computer-ref";
+import { computerOwner } from "../computer/owner";
 import {
   type PolicyContext,
   type PolicyDecision,
@@ -41,7 +41,7 @@ import {
 } from "../computer/policy-network";
 import type { ComputerProvider } from "../computer/provider";
 import type { Database } from "../db/client";
-import { agentProfiles, agents, auditEvents, spaceMembers } from "../db/schema";
+import { agentProfiles, agents, auditEvents } from "../db/schema";
 import { createOtelEventExporter, type EventExporter } from "../telemetry/otel";
 import { scrubCommand } from "../telemetry/scrub";
 import type { WebBotAuth } from "../web-bot-auth";
@@ -353,31 +353,9 @@ export async function installEnterpriseControls(
       ),
     );
 
-  /**
-   * Whose network rules a computer follows: a Bot's computer its owner's, and a space's computer the
-   * space owner's, since that is who answers for the space.
-   */
-  const ownerOfComputer = async (computerId: string) => {
-    if (isSpaceComputer(computerId)) {
-      const [owner] = await deps.database
-        .select({ owner: spaceMembers.userId })
-        .from(spaceMembers)
-        .where(
-          and(
-            eq(spaceMembers.spaceId, computerId),
-            eq(spaceMembers.role, "owner"),
-          ),
-        )
-        .limit(1);
-      return owner?.owner ?? null;
-    }
-    const [profile] = await deps.database
-      .select({ owner: agentProfiles.ownerUserId })
-      .from(agentProfiles)
-      .where(eq(agentProfiles.agentId, computerId))
-      .limit(1);
-    return profile?.owner ?? null;
-  };
+  /** Whose network rules a computer follows: whoever answers for it (computer/owner.ts). */
+  const ownerOfComputer = (computerId: string) =>
+    computerOwner(deps.database, computerId);
 
   const policyForBot = async (botId: string): Promise<EgressPolicy> => {
     const current = snapshot;

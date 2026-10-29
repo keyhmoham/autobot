@@ -68,6 +68,7 @@ export const PERMISSIONS = [
   "space.manage_rooms",
   "space.manage_computer",
   "space.manage_apps",
+  "space.manage_budget",
   "room.read",
   "room.send",
   "room.create_channel",

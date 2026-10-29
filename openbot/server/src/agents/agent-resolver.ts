@@ -21,6 +21,8 @@ import type { AgentActor } from "./profile-types";
 export type AgentResolutionContext = {
   initiator?: AuditInitiator;
   depth?: number;
+  /** The space the run works for, whose budget its model calls count against. */
+  spaceId?: string | null;
 };
 
 export class CoworkerUnavailableError extends Error {}
@@ -43,7 +45,7 @@ export type ActorAgentResolverDependencies = {
    * The model each built-in Bot thinks with, for one person: through the model gateway, on a token
    * naming that person as the payer. Per actor because the token is.
    */
-  modelsForActor: (actorId: string) => BotModelSource;
+  modelsForActor: (actorId: string, spaceId?: string | null) => BotModelSource;
   stallGuard?: StallGuard;
   loadToolsForActor?: (
     actorId: string,
@@ -101,7 +103,7 @@ export function createActorAgentResolver(
     resolveRuntimeAgents(
       () => Promise.resolve(registered),
       deps.model,
-      deps.modelsForActor(actor.id),
+      deps.modelsForActor(actor.id, context?.spaceId),
       deps.stallGuard,
       deps.loadToolsForActor?.(actor.id, context?.initiator),
       deps.signRunForActor?.(actor.id, context?.initiator, context?.depth),

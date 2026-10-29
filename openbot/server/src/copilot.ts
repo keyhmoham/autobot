@@ -378,7 +378,6 @@ export function standingInstructionsGuidance(
 
 export function builtInAgentConfiguration(
   agent: RegisteredBuiltInAgent,
-  model: RuntimeModel,
   /**
    * The model this Bot thinks with, through the deployment's model gateway (llm/models.ts). Null when
    * no model is set up, which leaves the Bot failing at its first turn with a sentence saying so.
@@ -1022,7 +1021,6 @@ async function buildAgent(
     new BuiltInAgentWithSaneHistory(
       builtInAgentConfiguration(
         agent,
-        model,
         thinksWith,
         tools,
         computerGuidance,

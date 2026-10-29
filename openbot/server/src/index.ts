@@ -115,6 +115,7 @@ import {
   spaceComputer,
 } from "./computer/gateway";
 import { createHeadlessComputerTools } from "./computer/headless-tools";
+import { computerOwner } from "./computer/owner";
 import { createPageFrameStore } from "./computer/page-frames";
 import { startPolicyListener } from "./computer/policy-listener";
 import { withPolicyPushOnWake } from "./computer/policy-network";
@@ -303,6 +304,9 @@ import { createUserInstructionsStore } from "./user-instructions";
 import { createUserPreferencesStore } from "./user-preferences";
 import { createVoiceSessionStore } from "./voice/sessions";
 import { createVoiceSummarizer } from "./voice/summary";
+import { createComputerMeter } from "./wallet/meter";
+import { createWalletRoutes } from "./wallet/routes";
+import { createWallets } from "./wallet/service";
 import { repeatAfterEach } from "./work/loop";
 import { createWorkQueue, type WorkOfferedListener } from "./work/queue";
 import { createDesks } from "./workspace/desk";
@@ -738,10 +742,30 @@ const gatewayTokens = createGatewayTokens({
     ? { deploymentKey: process.env.LLM_GATEWAY_KEY.trim() }
     : {}),
 });
+// Every credit that moves, moves here: see wallet/service.ts.
+const wallets = createWallets({ database });
 const modelGateway = createModelGateway({
   database,
   registry: llmRegistry,
   tokens: gatewayTokens,
+  hooks: {
+    // The deployment's own calls (no payer) still count against a space's budget when they name one.
+    admit: (caller) =>
+      wallets.admit({
+        payerUserId: caller.payerUserId,
+        spaceId: caller.spaceId,
+      }),
+    charge: (usage) =>
+      wallets.charge({
+        payerUserId: usage.caller.payerUserId,
+        amount: usage.cost,
+        category: "llm",
+        description: `${usage.model.name}: ${usage.inputTokens} tokens in, ${usage.outputTokens} out`,
+        spaceId: usage.caller.spaceId,
+        agentId: usage.caller.agentId,
+        reference: usage.usageId,
+      }),
+  },
 });
 const gatewayModels = createGatewayModels({
   gateway: modelGateway,
@@ -893,6 +917,25 @@ const computerGateway = computerProvider
       token: config.computer?.token,
     })
   : undefined;
+
+// Running computers cost their owners by the minute, and stop when nobody can pay: see wallet/meter.ts.
+if (computerGateway) {
+  const gateway = computerGateway;
+  createComputerMeter({
+    wallets,
+    computers: async () => (await gateway.computers()).computers,
+    ownerOf: (computerId) => computerOwner(database, computerId),
+    stop: async (computerId, reason) => {
+      await gateway.stopComputer(
+        { botId: computerId, computerId },
+        { id: "billing", initiator: DEPLOYMENT_INITIATOR },
+      );
+      console.warn(
+        JSON.stringify({ type: "computer-stopped-unpaid", computerId, reason }),
+      );
+    },
+  }).start();
+}
 
 /**
  * What a Bot can reach beyond its own computer.
@@ -1365,10 +1408,11 @@ const modelCheckAtBoot = (async () => {
 /**
  * The model each built-in Bot thinks with, for one person: the Bot's own choice when its
  * configuration names a model, the chat role's otherwise, through the gateway on a token naming the
- * person as the payer. Null, with the reason logged, when nothing is set up.
+ * person as the payer and, in a space's channel, the space whose budget it counts against. Null,
+ * with the reason logged, when nothing is set up.
  */
 const modelsForActor =
-  (actorId: string) =>
+  (actorId: string, spaceId?: string | null) =>
   async (botId: string): Promise<BotLanguageModel | null> => {
     try {
       const [row] = await database
@@ -1379,7 +1423,7 @@ const modelsForActor =
       const chosen = (row?.configuration as { model?: unknown } | undefined)
         ?.model;
       return await gatewayModels.languageModel(
-        { payerUserId: actorId, agentId: botId },
+        { payerUserId: actorId, agentId: botId, spaceId: spaceId ?? null },
         typeof chosen === "string" && chosen ? chosen : null,
       );
     } catch (error) {
@@ -1822,11 +1866,13 @@ const buildAgentFor = async ({
   agentId,
   initiator,
   depth,
+  threadId,
 }: {
   ownerUserId: string;
   agentId: string;
   initiator: AuditInitiator;
   depth?: number;
+  threadId?: string;
 }) => {
   const actor = await actorFor(ownerUserId);
   let agent: AbstractAgent | undefined;
@@ -1834,6 +1880,7 @@ const buildAgentFor = async ({
     agent = await actorAgentResolver.resolveAgentForActor(actor, agentId, {
       initiator,
       depth,
+      spaceId: (await placeOfThread(threadId))?.spaceId ?? null,
     });
   } catch (error) {
     if (!(error instanceof CoworkerUnavailableError)) throw error;
@@ -2869,6 +2916,7 @@ const app = createApp(
         ),
       },
     ],
+    (requireUser) => createWalletRoutes(wallets, requireUser),
     (requireUser) =>
       createWorkspaceRoutes(
         {

@@ -320,7 +320,6 @@ describe("registered Copilot agents", () => {
           type: "built_in",
           systemPrompt: "Be helpful.",
         },
-        { provider: "openai", defaultModel: "gpt-5.6-terra" },
         thinksWith,
       ),
     ).toMatchObject({
@@ -1152,7 +1151,6 @@ describe("what a Bot is told it holds", () => {
         type: "built_in",
         systemPrompt: "Investigate policies.",
       },
-      { provider: "openai", defaultModel: "gpt-5.6-terra" },
       modelFromEnvironment(
         { provider: "openai", defaultModel: "gpt-5.6-terra" },
         "openai-secret",
@@ -1195,7 +1193,6 @@ describe("where a Bot says its answer came from", () => {
         type: "built_in",
         systemPrompt: "Be helpful.",
       },
-      { provider: "openai", defaultModel: "gpt-5.6-terra" },
       modelFromEnvironment(
         { provider: "openai", defaultModel: "gpt-5.6-terra" },
         "openai-secret",
@@ -1274,7 +1271,6 @@ describe("a person's standing instructions", () => {
   const promptWith = (instructions: string | null) =>
     builtInAgentConfiguration(
       assistant,
-      model,
       modelFromEnvironment(model, "openai-secret"),
       [],
       undefined,
@@ -1302,7 +1298,6 @@ describe("a person's standing instructions", () => {
   test("sits after the role and before everything the deployment adds", () => {
     const prompt = builtInAgentConfiguration(
       assistant,
-      model,
       modelFromEnvironment(model, "openai-secret"),
       [{ name: "mcp__google-drive__search_files" }] as never[],
       "Computer guidance.",

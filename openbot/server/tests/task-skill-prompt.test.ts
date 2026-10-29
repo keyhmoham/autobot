@@ -110,7 +110,6 @@ function harness(options: { approval?: boolean } = {}) {
   };
   const configuration = builtInAgentConfiguration(
     { id: "bot", name: "Bot", type: "built_in", systemPrompt: ROLE },
-    { provider: "openai", defaultModel: "offline" },
     modelFromEnvironment(
       { provider: "openai", defaultModel: "offline" },
       "unused-offline-key",

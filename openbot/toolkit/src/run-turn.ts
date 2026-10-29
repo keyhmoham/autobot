@@ -625,6 +625,8 @@ export function createTurnRunner(options: {
     agentId: string;
     initiator: AuditInitiator;
     depth?: number;
+    /** The thread the turn runs in, which says where its work is charged. */
+    threadId?: string;
   }) => Promise<AbstractAgent>;
   toolsForTurn?: (input: {
     ownerUserId: string;
@@ -776,6 +778,7 @@ export function createTurnRunner(options: {
       ownerUserId,
       agentId,
       initiator,
+      threadId,
       ...(depth ? { depth } : {}),
     });
     agent.threadId = threadId;
