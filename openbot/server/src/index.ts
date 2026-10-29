@@ -87,6 +87,9 @@ import {
   createChannelEventHub,
   startChannelActivityListener,
 } from "./channels/events";
+import { createDesks } from "./workspace/desk";
+import { createDeskTools } from "./workspace/desk-tools";
+import { WorkspaceNotFoundError } from "./workspace/errors";
 import { createInvitations } from "./workspace/invitations";
 import { createWorkspaceRoutes } from "./workspace/routes";
 import { createWorkspace } from "./workspace/service";
@@ -2001,6 +2004,39 @@ const workspace = createWorkspace({
     conversations.greet(actorUserId, channelId, { name, purpose }),
 });
 const invitations = createInvitations({ database, workspace });
+const desks = createDesks({
+  database,
+  checks: {
+    // A page goes up on a room's desk only from somebody who may open it, and is the room's after.
+    page: async ({ target, userId }) => {
+      if (target.kind !== "page") return;
+      const page = await openDuetPages.byId(target.pageId);
+      if (page?.ownerUserId !== userId)
+        throw new WorkspaceNotFoundError("That page");
+    },
+  },
+});
+
+/**
+ * The tools a shared channel's turn holds because of where it is: the room's desk. Resolved from the
+ * Bot's thread, which names the channel, and so the room and space, the turn runs in.
+ */
+const workspaceToolsForTurn = async (input: {
+  ownerUserId: string;
+  agentId: string;
+  threadId: string;
+}) => {
+  const thread = await conversations.store.threadRow(input.threadId);
+  const place = thread ? await workspace.spaceOf(thread.channelId) : null;
+  if (!thread || !place) return [];
+  return createDeskTools(desks, {
+    channelId: thread.channelId,
+    roomId: place.roomId,
+    spaceId: place.spaceId,
+    agentId: input.agentId,
+    actingFor: input.ownerUserId,
+  });
+};
 
 const conversations = createConversations({
   store: createConversationStore(database, () => threadIdentity.mint()),
@@ -2014,20 +2050,28 @@ const conversations = createConversations({
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator }) => {
-      if (!computerGateway) return [];
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) => {
+      const placeTools = await workspaceToolsForTurn({
+        ownerUserId,
+        agentId,
+        threadId,
+      });
+      if (!computerGateway) return placeTools;
       const actor = await actorFor(ownerUserId);
       const profile = await agentProfileStore.get(actor, agentId);
       if (!profile) throw new Error("That Bot is not available to this owner.");
       // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return [];
-      return createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      });
+      if (!canUseComputer(profile, actor)) return placeTools;
+      return [
+        ...placeTools,
+        ...createHeadlessComputerTools({
+          gateway: computerGateway,
+          botId: agentId,
+          actor: { id: actor.id, userId: actor.id, initiator },
+          auditStore: bootAuditStore,
+          ...(signInService ? { signIn: signInService } : {}),
+        }),
+      ];
     },
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
@@ -2791,7 +2835,18 @@ const app = createApp(
 
   identityStore,
   identityGithubCallback,
-  [(requireUser) => createWorkspaceRoutes(workspace, invitations, requireUser)],
+  [
+    (requireUser) =>
+      createWorkspaceRoutes(
+        {
+          workspace,
+          invitations,
+          desks,
+          deskPage: (pageId) => openDuetPages.byId(pageId),
+        },
+        requireUser,
+      ),
+  ],
 );
 
 const { addresses: listening } = startHttpServer({

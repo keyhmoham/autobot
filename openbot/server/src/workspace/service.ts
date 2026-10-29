@@ -68,6 +68,7 @@ import {
   spaceMembers,
   spaces,
 } from "../db/schema/workspace";
+import { DESK_GUIDANCE } from "./desk-tools";
 import {
   channelPlace,
   type Reader,
@@ -1273,7 +1274,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
       `This is the channel #${row.name} in the room "${row.room}" of the space "${row.space}".`,
       row.purpose.trim() ? `It is for: ${row.purpose.trim()}` : "",
       row.topic?.trim() ? `The room is about: ${row.topic.trim()}` : "",
-      "Everyone in the room shares its desk and the space's computer.",
+      "Everyone in the room shares the space's computer.",
+      DESK_GUIDANCE,
     ]
       .filter(Boolean)
       .join(" ");

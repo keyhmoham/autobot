@@ -10,6 +10,7 @@ import {
   WorkspaceNotFoundError,
   WorkspaceRefusedError,
 } from "./errors";
+import type { Desks } from "./desk";
 import type { Invitations } from "./invitations";
 import type { Workspace } from "./service";
 
@@ -52,10 +53,16 @@ const body = (context: Context<Env>) =>
   context.req.json().catch(() => ({})) as Promise<unknown>;
 
 export function createWorkspaceRoutes(
-  workspace: Workspace,
-  invitations: Invitations,
+  services: {
+    workspace: Workspace;
+    invitations: Invitations;
+    desks: Desks;
+    /** A page shown on a room's desk, for the people who read the room. */
+    deskPage: (pageId: string) => Promise<unknown | null>;
+  },
   requireUser: MiddlewareHandler<Env>,
 ): RouteMount[] {
+  const { workspace, invitations, desks } = services;
   const spaces = personRoutes(requireUser);
   spaces.get("/", async (c) => c.json({ spaces: await workspace.list(me(c)) }));
   spaces.get("/discover", async (c) =>
@@ -181,6 +188,30 @@ export function createWorkspaceRoutes(
       false,
     );
     return c.body(null, 204);
+  });
+  rooms.get("/:roomId/desk", async (c) =>
+    c.json({ desk: await desks.get(me(c), c.req.param("roomId")) }),
+  );
+  rooms.post("/:roomId/desk", async (c) =>
+    c.json(
+      await desks.apply(
+        c.req.param("roomId"),
+        { kind: "person", userId: me(c) },
+        await body(c),
+      ),
+    ),
+  );
+  rooms.get("/:roomId/desk/pages/:pageId", async (c) => {
+    const roomId = c.req.param("roomId");
+    const pageId = c.req.param("pageId");
+    await desks.get(me(c), roomId);
+    const shown = await desks.shows(
+      roomId,
+      (target) => target.kind === "page" && target.pageId === pageId,
+    );
+    const page = shown ? await services.deskPage(pageId) : null;
+    if (!page) throw new WorkspaceNotFoundError("That page");
+    return c.json({ page });
   });
   rooms.post("/:roomId/channels", async (c) =>
     c.json(

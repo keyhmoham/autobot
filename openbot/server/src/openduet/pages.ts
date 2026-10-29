@@ -528,6 +528,21 @@ export function createPageStore(
         .limit(limit);
       return rows.map(summaryOf);
     },
+    /**
+     * A page by its id alone, whoever made it. Only for a caller that has already decided the reader
+     * may see it, which today is a room's desk showing it (workspace/desk.ts): the page is the room's
+     * once somebody who may open it put it there.
+     */
+    async byId(
+      id: string,
+    ): Promise<(PageRecord & { ownerUserId: string }) | null> {
+      const [row] = await database
+        .select()
+        .from(openduetPages)
+        .where(eq(openduetPages.id, id))
+        .limit(1);
+      return row ? { ...recordOf(row), ownerUserId: row.ownerUserId } : null;
+    },
     async get(owner: string, id: string): Promise<PageRecord> {
       const [row] = await database
         .select()
