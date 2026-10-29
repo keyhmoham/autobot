@@ -290,7 +290,52 @@ export interface ComputerGateway {
     computer: ComputerRef,
     actor: ActionActor,
   ): Promise<ComputerUpdate>;
+  /** The long-running services (the apps) the computer keeps running. */
+  services(computer: ComputerRef): Promise<ComputerService[]>;
+  /**
+   * Start a service, replacing one of the same name. Decided and recorded exactly as a command is,
+   * because that is what it is: a command, left running.
+   */
+  startService(
+    computer: ComputerRef,
+    actor: ActionActor,
+    spec: ComputerServiceSpec,
+  ): Promise<ComputerService>;
+  stopService(
+    computer: ComputerRef,
+    name: string,
+  ): Promise<{ stopped: boolean }>;
+  serviceLogs(
+    computer: ComputerRef,
+    name: string,
+    lines?: number,
+  ): Promise<{ lines: string[] }>;
+  /** Carry one request to a service and its answer back, whatever the answer is. */
+  openService(
+    computer: ComputerRef,
+    name: string,
+    path: string,
+    init: RequestInit,
+  ): Promise<Response>;
 }
+
+export type ComputerServiceSpec = {
+  name: string;
+  command: string;
+  /** Relative to the computer's workspace. */
+  cwd: string;
+  port: number;
+  env?: Record<string, string>;
+};
+
+export type ComputerService = ComputerServiceSpec & {
+  status: "starting" | "running" | "restarting" | "crashed" | "stopped";
+  listening: boolean;
+  pid: number | null;
+  restarts: number;
+  startedAt: string | null;
+  lastExit: { code: number | null; signal: string | null; at: string } | null;
+};
 
 export function createComputerGateway(
   options: ComputerGatewayOptions,
@@ -1321,6 +1366,72 @@ export function createComputerGateway(
         actor,
         { filePath: input.path },
         () => post<WriteFileResult>(computer.computerId, "/files/write", input),
+      );
+    },
+
+    async services(computer: ComputerRef) {
+      return (
+        await get<{ services: ComputerService[] }>(
+          computer.computerId,
+          "/services",
+        )
+      ).services;
+    },
+
+    startService(
+      computer: ComputerRef,
+      actor: ActionActor,
+      spec: ComputerServiceSpec,
+    ) {
+      return govern(
+        "computer_run_command",
+        computer,
+        actor,
+        { command: spec.command },
+        async (address) =>
+          (
+            await transport.call<{ service: ComputerService }>(
+              address ?? (await locate(computer.computerId)),
+              computer.computerId,
+              "/services",
+              {
+                method: "PUT",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(spec),
+              },
+            )
+          ).service,
+      );
+    },
+
+    async stopService(computer: ComputerRef, name: string) {
+      return transport.call<{ stopped: boolean }>(
+        await locate(computer.computerId),
+        computer.computerId,
+        `/services/${encodeURIComponent(name)}`,
+        { method: "DELETE" },
+      );
+    },
+
+    serviceLogs(computer: ComputerRef, name: string, lines = 200) {
+      return get<{ lines: string[] }>(
+        computer.computerId,
+        `/services/${encodeURIComponent(name)}/logs?lines=${lines}`,
+      );
+    },
+
+    async openService(
+      computer: ComputerRef,
+      name: string,
+      path: string,
+      init: RequestInit,
+    ) {
+      return transport.forward(
+        await locate(computer.computerId),
+        computer.computerId,
+        `/services/${encodeURIComponent(name)}/http${path.startsWith("/") ? path : `/${path}`}`,
+        init,
+        60_000,
       );
     },
   };

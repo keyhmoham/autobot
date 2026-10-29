@@ -526,6 +526,13 @@
       "when": 1793314176010,
       "tag": "0074_social",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793315053585,
+      "tag": "0075_apps",
+      "breakpoints": true
     }
   ]
 }

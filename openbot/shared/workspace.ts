@@ -67,6 +67,7 @@ export const PERMISSIONS = [
   "space.manage_bots",
   "space.manage_rooms",
   "space.manage_computer",
+  "space.build_apps",
   "space.manage_apps",
   "space.manage_budget",
   "room.read",
@@ -79,6 +80,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 
 const MEMBER_PERMISSIONS: readonly Permission[] = [
   "space.view",
+  "space.build_apps",
   "room.read",
   "room.send",
   "room.create_channel",

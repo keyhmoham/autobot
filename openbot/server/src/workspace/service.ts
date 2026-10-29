@@ -46,6 +46,7 @@ import {
 import { z } from "zod";
 import type { AgentProfileStore } from "../agents/profile-store";
 import type { AgentActor } from "../agents/profile-types";
+import { APP_GUIDANCE } from "../apps/tools";
 import {
   type AuditEventType,
   type AuditStore,
@@ -1289,6 +1290,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       row.topic?.trim() ? `The room is about: ${row.topic.trim()}` : "",
       "Everyone in the room shares the space's computer.",
       DESK_GUIDANCE,
+      APP_GUIDANCE,
       TIMELINE_GUIDANCE,
     ]
       .filter(Boolean)

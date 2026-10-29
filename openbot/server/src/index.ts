@@ -62,6 +62,10 @@ import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { ApprovalRefusedError } from "./approvals/types";
 import { createServerApprovalService } from "./approvals/wiring";
+import { createAppLinks } from "./apps/links";
+import { createAppRoutes, createAppViewRoutes } from "./apps/routes";
+import { createApps } from "./apps/service";
+import { createAppTools } from "./apps/tools";
 import {
   type AuditInitiator,
   auditSink,
@@ -925,6 +929,13 @@ const turnComputerTools = async (
           actingFor: ownerUserId,
         }),
         ...createTimelineTools(timeline, place),
+        ...(computerGateway
+          ? createAppTools(
+              apps,
+              { ...place, agentId, actingFor: ownerUserId },
+              initiator,
+            )
+          : []),
       ]
     : [];
   if (!computerGateway || !canUseComputer(profile, actor)) return deskTools;
@@ -2212,7 +2223,16 @@ const desks = createDesks({
       if (page?.ownerUserId !== userId)
         throw new WorkspaceNotFoundError("That page");
     },
+    app: (input) => apps.checkDeskTarget(input),
   },
+});
+
+// The web apps a space's Bots build in its computer: see apps/service.ts.
+const apps = createApps({
+  database,
+  gateway: computerGateway,
+  links: createAppLinks({ encryptionKey: config.keyEncryptionKey }),
+  workspace,
 });
 
 const conversations = createConversations({
@@ -2988,6 +3008,9 @@ const app = createApp(
       createWalletRoutes(wallets, requireUser, federatedTransfers),
     (requireUser) => [createTimelineRoutes(timeline, requireUser)],
     (requireUser) => createSocialRoutes(social, requireUser),
+    (requireUser) => [createAppRoutes(apps, requireUser)],
+    // An app is served on its link alone, never on a person's session.
+    () => [createAppViewRoutes(apps)],
     // Other nodes are answered on their signatures, never a person's session.
     () => [createPeerRoutes(federation)],
     (requireUser) => createFederationRoutes(federation, requireUser),

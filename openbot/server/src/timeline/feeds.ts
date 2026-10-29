@@ -160,6 +160,9 @@ function workspaceFeed(database: Database): TimelineFeed {
     "channel.created",
     "channel.updated",
     "channel.deleted",
+    "app.installed",
+    "app.updated",
+    "app.removed",
   ];
   return {
     name: "workspace",
@@ -327,6 +330,34 @@ function workspaceFeed(database: Database): TimelineFeed {
                     : "can no longer read",
                 object: room,
                 stateKey: `room:${room.ref}:${member.ref}`,
+              });
+            break;
+          }
+          case "app.installed":
+          case "app.updated":
+          case "app.removed": {
+            const builder = text(payload.agent)
+              ? await name.agent(text(payload.agent))
+              : actor;
+            if (builder)
+              statements = said({
+                subject: builder,
+                phrase: {
+                  "app.installed": "built",
+                  "app.updated": "rebuilt",
+                  "app.removed": "removed",
+                }[row.eventType],
+                object: {
+                  kind: "app",
+                  ref: text(payload.app),
+                  name: text(payload.name) || "An app",
+                },
+                value:
+                  row.eventType === "app.removed"
+                    ? null
+                    : text(payload.status) || null,
+                qualifiers:
+                  text(payload.agent) && actor ? { for: actor.name } : {},
               });
             break;
           }

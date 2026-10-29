@@ -54,6 +54,14 @@ import type { DeploymentConfig } from "../config";
 /** Paths whose callers prove themselves with a signature over the body, not a session. */
 const SIGNED_INGRESS = ["/api/events/", "/api/delivery/webhooks/"];
 
+/**
+ * The apps a space's Bots build, served behind their links (apps/routes.ts). Exempt from every rule
+ * here, the origin included: an app runs in a sandbox whose origin is opaque, so its own requests
+ * arrive from `Origin: null`, and nothing under this path reads a session, so a page elsewhere has
+ * nothing to borrow. The link in the path is the whole authority.
+ */
+const APP_VIEWS = "/apps-view/";
+
 /** Types a page can send to another site without a preflight, and that can still carry JSON. */
 const SMUGGLES_JSON = new Set([
   "text/plain",
@@ -172,6 +180,7 @@ export function crossSiteRefusal(
   const under = (prefix: string) =>
     paths.every((path) => path.startsWith(prefix));
   if (under("/api/auth/")) return null;
+  if (under(APP_VIEWS)) return null;
 
   const origin = request.headers.get("origin");
   const site = request.headers.get("sec-fetch-site");

@@ -617,6 +617,9 @@ export const auditEventTypes = [
   "room.member_removed",
   "channel.created",
   "channel.updated",
+  "app.installed",
+  "app.updated",
+  "app.removed",
 ] as const;
 
 export type AuditEventType = (typeof auditEventTypes)[number];
