@@ -1,8 +1,8 @@
+import { MAX_IMAGE_BYTES } from "@openbot/shared/attachments";
 import type { Hono as HonoApp, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { serveStatic } from "hono/bun";
-import { MAX_IMAGE_BYTES } from "@openbot/shared/attachments";
 import { enterpriseControls } from "./admin/controls";
 import { createEnterpriseGate } from "./admin/gate";
 import { createEnterpriseAdminRoutes } from "./admin/routes";
@@ -25,10 +25,10 @@ import type { ApprovalService } from "./approvals/service";
 import {
   type AuditEventType,
   type AuditInitiator,
-  auditEventsToCsv,
   AuditQueryError,
   type AuditReader,
   type AuditStore,
+  auditEventsToCsv,
   auditQueryFromUrl,
   DEPLOYMENT_INITIATOR,
   readAuditExportRows,
@@ -49,11 +49,11 @@ import {
   createAttachmentRoutes,
   createChannelAttachmentRoutes,
 } from "./channels/attachments";
-import type { ChannelEventHub } from "./channels/events";
 import {
   type Conversations,
   createConversationRoutes,
 } from "./channels/conversation";
+import type { ChannelEventHub } from "./channels/events";
 import { type ChannelStore, createChannelRoutes } from "./channels/routes";
 import type { ThreadIdentity } from "./channels/thread-identity";
 import { createThreadRoutes } from "./channels/thread-routes";
@@ -65,7 +65,10 @@ import type { ComponentStore } from "./components/store";
 import type { ComputerGateway } from "./computer/gateway";
 import type { PageFrameStore } from "./computer/page-frames";
 import type { PolicyStore } from "./computer/policy-store";
-import { createComputerRoutes } from "./computer/routes";
+import {
+  createComputerRoutes,
+  type SpaceComputerAccess,
+} from "./computer/routes";
 import { configuredAuthProviders, type DeploymentConfig } from "./config";
 import {
   type CredentialAdminService,
@@ -96,23 +99,6 @@ import {
 import type { MemoryIngestion } from "./memory/ingestion";
 import { createMemoryRoutes } from "./memory/routes";
 import type { MemoryStore } from "./memory/store";
-import { parsePageLimit } from "./paging";
-import { createPasswordRoutes, createSignInRoutes } from "./passwords/routes";
-import type { SignInService } from "./passwords/service";
-import type { OnboardingStore } from "./people/onboarding";
-import { MAX_PAGE, type PeopleStore } from "./people/store";
-import type { AccountModeSwitch } from "./plugins/account-mode";
-import type { ComposioBroker } from "./plugins/broker";
-import type { BrokerProvider } from "./plugins/access";
-import { createPluginRoutes } from "./plugins/routes";
-import { createSharedUseRoutes } from "./plugins/shared-use-routes";
-import type { SharedUseStore } from "./plugins/shared-use-store";
-import {
-  isDeploymentFault,
-  PluginRefusedError,
-  type PluginStore,
-} from "./plugins/store";
-import { REFUSAL_MARKER, vendorAnswer } from "./plugins/tools";
 import {
   createDuetChannelRoutes,
   type DuetChannelStore,
@@ -125,6 +111,23 @@ import {
   type TaskIntake,
   type TaskStore,
 } from "./openduet/task-store";
+import { parsePageLimit } from "./paging";
+import { createPasswordRoutes, createSignInRoutes } from "./passwords/routes";
+import type { SignInService } from "./passwords/service";
+import type { OnboardingStore } from "./people/onboarding";
+import { MAX_PAGE, type PeopleStore } from "./people/store";
+import type { BrokerProvider } from "./plugins/access";
+import type { AccountModeSwitch } from "./plugins/account-mode";
+import type { ComposioBroker } from "./plugins/broker";
+import { createPluginRoutes } from "./plugins/routes";
+import { createSharedUseRoutes } from "./plugins/shared-use-routes";
+import type { SharedUseStore } from "./plugins/shared-use-store";
+import {
+  isDeploymentFault,
+  PluginRefusedError,
+  type PluginStore,
+} from "./plugins/store";
+import { REFUSAL_MARKER, vendorAnswer } from "./plugins/tools";
 import type { ProactiveEngine } from "./proactive/engine";
 import { createProactiveRoutes } from "./proactive/routes";
 import type { ProactiveStore } from "./proactive/store";
@@ -492,6 +495,8 @@ export function createApp(
     path: string;
     routes: Hono<{ Variables: AppVariables }>;
   }[])[] = [],
+  /** Who may watch, drive and manage a space's computer through the computer routes. */
+  spaceComputerAccess?: SpaceComputerAccess,
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
   /*
@@ -1448,6 +1453,7 @@ export function createApp(
         agentProfileStore ? computerAccessCheck(agentProfileStore) : canUseBot,
         pageFrames,
         auditReader,
+        spaceComputerAccess,
       ),
     );
   }

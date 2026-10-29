@@ -6,7 +6,7 @@ import type { AgentProfileStore } from "./agents/profile-store";
 import type { OpenBotRole } from "./auth/roles";
 import { appOrigins, crossSiteRefusal } from "./auth/same-origin";
 import { websocket as channelSocket } from "./channels/socket";
-import type { ComputerGateway } from "./computer/gateway";
+import { type ComputerGateway, isSpaceComputer } from "./computer/gateway";
 import { streamPathBotId } from "./computer/stream-path";
 import type { DeploymentConfig } from "./config";
 import type { DemonstrationRecorder } from "./demonstrations/recording";
@@ -55,6 +55,8 @@ export function startHttpServer(deps: {
   ) => Promise<{ id: string; name: string; role: OpenBotRole }>;
   agentProfileStore: AgentProfileStore;
   computerGateway: ComputerGateway | undefined;
+  /** Whether a person may watch and drive a space's computer, which is shared by everybody in it. */
+  spaceComputerAccess: (userId: string, spaceId: string) => Promise<boolean>;
   demonstrationStore: DemonstrationStore;
   demonstrationRecorder: DemonstrationRecorder;
   app: {
@@ -70,6 +72,7 @@ export function startHttpServer(deps: {
     resolveRequestActor,
     agentProfileStore,
     computerGateway,
+    spaceComputerAccess,
     demonstrationStore,
     demonstrationRecorder,
     app,
@@ -138,11 +141,14 @@ export function startHttpServer(deps: {
         // And which Bot, which the guard above does not answer. This socket carries that Bot's screen,
         // so signing in is not enough: without this, anybody signed in watches anybody's Bot work. And
         // seeing a Team Bot is not enough either: its screen is its owner's signed-in browser.
+        // A space's computer is the space's: anybody who may drive it in the space may watch it here.
         if (
-          !(await computerAccessCheck(agentProfileStore)(
-            { id: actor.id, role: actor.role },
-            streamBotId,
-          ))
+          !(isSpaceComputer(streamBotId)
+            ? await spaceComputerAccess(actor.id, streamBotId)
+            : await computerAccessCheck(agentProfileStore)(
+                { id: actor.id, role: actor.role },
+                streamBotId,
+              ))
         ) {
           return new Response("There is no such Bot.", { status: 404 });
         }

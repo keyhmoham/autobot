@@ -25,6 +25,8 @@ export type SignInRequestRecord = {
   id: string;
   ownerUserId: string;
   botId: string;
+  /** The computer it is typed into when that is not the Bot's own: a space's. */
+  computerId: string | null;
   origin: string;
   reason: string | null;
   status: SignInStatus;

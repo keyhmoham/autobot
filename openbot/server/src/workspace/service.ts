@@ -8,17 +8,17 @@
  * announced to the space's members as a `workspace` event, carrying what to refetch and nothing else.
  */
 import {
-  type ChannelColour,
-  type ChannelIcon,
   CHANNEL_COLOURS,
   CHANNEL_ICONS,
+  type ChannelColour,
+  type ChannelIcon,
   MAX_CHANNEL_NAME,
   MAX_CHANNEL_PURPOSE,
 } from "@openbot/shared/channel-look";
 import {
   assignableRoles,
-  can,
   type ChannelWire,
+  can,
   MAX_DESCRIPTION,
   MAX_ROOM_NAME,
   MAX_SPACE_NAME,
@@ -68,7 +68,6 @@ import {
   spaceMembers,
   spaces,
 } from "../db/schema/workspace";
-import { DESK_GUIDANCE } from "./desk-tools";
 import {
   channelPlace,
   type Reader,
@@ -81,6 +80,7 @@ import {
   syncSpaceChannels,
   type Transaction,
 } from "./access";
+import { DESK_GUIDANCE } from "./desk-tools";
 import {
   WorkspaceForbiddenError,
   WorkspaceNotFoundError,
@@ -1281,6 +1281,26 @@ export function createWorkspace(deps: WorkspaceDeps) {
       .join(" ");
   }
 
+  /**
+   * Whether the person may use the space's computer: watch it (anybody in the space), drive it by
+   * hand (whoever may use the space's desks), or stop, reset and update it (whoever manages it).
+   */
+  async function computerAccess(
+    userId: string,
+    spaceId: string,
+    need: "view" | "drive" | "manage",
+  ): Promise<boolean> {
+    const role = await roleIn(database, spaceId, userId);
+    return can(
+      role,
+      need === "view"
+        ? "space.view"
+        : need === "drive"
+          ? "room.desk"
+          : "space.manage_computer",
+    );
+  }
+
   /** The space a channel is in, for binding its turns to the space's computer and desk. */
   async function spaceOf(
     channelId: string,
@@ -1442,6 +1462,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     roster,
     describe,
     spaceOf,
+    computerAccess,
     audit,
     announce,
   };

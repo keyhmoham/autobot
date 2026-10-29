@@ -1,3 +1,5 @@
+import type { UserPreferences } from "@openbot/shared/user-preferences";
+import { CHANNEL_KINDS, type ChannelKind } from "@openbot/shared/workspace";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -13,8 +15,6 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { UserPreferences } from "@openbot/shared/user-preferences";
-import { CHANNEL_KINDS, type ChannelKind } from "@openbot/shared/workspace";
 // NOT drizzle's `jsonb`: that one serialises, and so does the driver, so every object landed as a
 // JSON string and nothing in this database could be queried by a JSON field. See ./json.ts.
 import { jsonb } from "./json";

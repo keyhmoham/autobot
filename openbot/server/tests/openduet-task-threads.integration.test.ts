@@ -24,13 +24,12 @@ import type { TurnRunner } from "@openbot/toolkit/run-turn";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createAgentProfileStore } from "../src/agents/profile-store";
 import type { AgentActor } from "../src/agents/profile-types";
+import { createPersonResponseTick } from "../src/approvals/person-response-sweep";
 import {
   createApprovalQuestions,
   type PersonQuestion,
   questionResponseMessage,
 } from "../src/approvals/questions";
-import { createPersonResponseTick } from "../src/approvals/person-response-sweep";
-import { createResponsibilityStore } from "../src/responsibilities/store";
 import { createAuditStore } from "../src/audit";
 import type { AuthenticatedActor } from "../src/auth/guards";
 import {
@@ -90,6 +89,7 @@ import {
   ProactiveNotFoundError,
   ProactiveRefusedError,
 } from "../src/proactive/types";
+import { createResponsibilityStore } from "../src/responsibilities/store";
 import {
   createWorkQueue,
   type WorkItem,

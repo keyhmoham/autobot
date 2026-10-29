@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { AuditEventInput, AuditStore } from "../src/audit";
 import { StaleSnapshotError } from "../src/computer/client";
-import { createComputerGateway } from "../src/computer/gateway";
+import { createComputerGateway, ownComputer } from "../src/computer/gateway";
 import type { ActionPolicy } from "../src/computer/policy";
 import type { SnapshotResult } from "../src/computer/schema";
 import { createSnapshotStore } from "../src/computer/snapshot-store";
@@ -111,7 +111,7 @@ afterAll(async () => {
 test("replica B refuses a ref that replica A took before the container was replaced", async () => {
   // Replica A: takes the snapshot during the first run. Writes it to Postgres.
   const a = replica(() => FIRST_RUN);
-  await a.gateway.snapshot(botId);
+  await a.gateway.snapshot(ownComputer(botId));
 
   // The row really is in Postgres, carrying the run it was taken on.
   const [stored] = await database
@@ -124,7 +124,7 @@ test("replica B refuses a ref that replica A took before the container was repla
   // container has since been replaced, so the supervisor now reports the second run.
   const b = replica(() => SECOND_RUN, [botId]);
   const clicked = await b.gateway
-    .click(botId, ACTOR, { ref: "e9", snapshotId: 7 })
+    .click(ownComputer(botId), ACTOR, { ref: "e9", snapshotId: 7 })
     .catch((error: unknown) => error);
 
   expect(clicked).toBeInstanceOf(StaleSnapshotError);
@@ -132,11 +132,11 @@ test("replica B refuses a ref that replica A took before the container was repla
 
 test("CONTROL: replica B allows the same ref while the run is still current", async () => {
   const a = replica(() => FIRST_RUN);
-  await a.gateway.snapshot(botId);
+  await a.gateway.snapshot(ownComputer(botId));
 
   // Same cold replica, but the container was never replaced.
   const b = replica(() => FIRST_RUN, [botId]);
-  const result = await b.gateway.click(botId, ACTOR, {
+  const result = await b.gateway.click(ownComputer(botId), ACTOR, {
     ref: "e9",
     snapshotId: 7,
   });

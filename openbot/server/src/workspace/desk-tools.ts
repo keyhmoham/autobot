@@ -2,8 +2,9 @@
  * The desk, as a Bot reaches it: look at what is on the room's desk, put something on it, rearrange
  * it, take it off. Every call is a `DeskHand` of kind `agent`, decided for the person the turn answers.
  */
-import type { HeadlessTool } from "@openbot/toolkit/headless-tools";
+
 import { DESK_KINDS, DESK_SHAPES, DESK_SIZES } from "@openbot/shared/desk";
+import type { HeadlessTool } from "@openbot/toolkit/headless-tools";
 import { z } from "zod";
 import type { Desks } from "./desk";
 import { type TurnPlace, workspaceTool } from "./tools";

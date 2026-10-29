@@ -24,8 +24,8 @@ import { z } from "zod";
 import type { Database } from "../db/client";
 import { users } from "../db/schema/core";
 import {
-  rooms,
   roomMembers,
+  rooms,
   spaceInvitations,
   spaces,
 } from "../db/schema/workspace";

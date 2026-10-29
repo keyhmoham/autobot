@@ -5,10 +5,13 @@ import {
   HttpAgent,
   type RunAgentInput,
 } from "@ag-ui/client";
+import type { GrantedTool } from "@openbot/toolkit/granted-tool";
+import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
+import { createTurnRunner, type RunnerLike } from "@openbot/toolkit/run-turn";
 import { Observable } from "rxjs";
 import { z } from "zod";
+import { serverTurnAdmission } from "../src/agents/turn-admission";
 import type { ApprovalRecord } from "../src/approvals/types";
-import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import {
   createProactiveEngine,
   endedOnReplies,
@@ -25,10 +28,7 @@ import {
 } from "../src/proactive/restriction";
 import type { ProactiveStore } from "../src/proactive/store";
 import type { ProactiveSetting } from "../src/proactive/types";
-import { createTurnRunner, type RunnerLike } from "@openbot/toolkit/run-turn";
-import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import type { WorkQueue } from "../src/work/queue";
-import { serverTurnAdmission } from "../src/agents/turn-admission";
 
 /** These engines never start a task; one that tried would fail the test loudly. */
 const NO_TASKS: TaskThreads = {

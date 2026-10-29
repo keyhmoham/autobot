@@ -3,6 +3,8 @@
  * for durable threads and memory. Configuration the product cannot function without belongs at the
  * boot boundary.
  */
+
+import { networkInterfaces } from "node:os";
 import {
   isLearningContainerId,
   type LearningTarget,
@@ -13,7 +15,6 @@ import {
   listenHosts,
 } from "@openbot/shared/listen-host";
 import { listenPort } from "@openbot/shared/listen-port";
-import { networkInterfaces } from "node:os";
 import { singleUserEnabled } from "./auth/dev-actor";
 import { normalizeDomain } from "./auth/email-domain";
 import { organizationAuthority } from "./auth/organization";

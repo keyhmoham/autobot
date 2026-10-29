@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   applyDeskOp,
   boardOrder,
-  type Desk,
   DESK_MAX_WINDOWS,
-  DeskOpError,
+  type Desk,
   type DeskOp,
+  DeskOpError,
   emptyDesk,
   normalizeWorkspacePath,
 } from "./desk";

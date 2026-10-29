@@ -1,4 +1,5 @@
 // First, before anything that imports the CopilotKit runtime: see telemetry.ts.
+import type { HeadlessTool } from "@openbot/toolkit/headless-tools";
 import "./telemetry";
 import type { AbstractAgent } from "@ag-ui/client";
 import {
@@ -50,13 +51,13 @@ import {
   wakeUpTools,
 } from "./agents/wake-up";
 import { createApp } from "./app";
+import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovedActionExecutor } from "./approvals/execute";
 import { createPersonResponseTick } from "./approvals/person-response-sweep";
 import {
   type PersonQuestion,
   questionConversationBot,
 } from "./approvals/questions";
-import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { ApprovalRefusedError } from "./approvals/types";
@@ -84,20 +85,14 @@ import {
   markAttachmentsSent,
 } from "./channels/attachments";
 import {
-  createChannelEventHub,
-  startChannelActivityListener,
-} from "./channels/events";
-import { createDesks } from "./workspace/desk";
-import { createDeskTools } from "./workspace/desk-tools";
-import { WorkspaceNotFoundError } from "./workspace/errors";
-import { createInvitations } from "./workspace/invitations";
-import { createWorkspaceRoutes } from "./workspace/routes";
-import { createWorkspace } from "./workspace/service";
-import {
   conversationSourceForRun,
   createConversationStore,
   createConversations,
 } from "./channels/conversation";
+import {
+  createChannelEventHub,
+  startChannelActivityListener,
+} from "./channels/events";
 import {
   type ChannelStore,
   createChannelStore,
@@ -114,7 +109,11 @@ import { createChannelTitler } from "./channels/titler";
 import { headlessComponentCatalog } from "./components/headless";
 import { createSandboxedStore } from "./components/sandboxed";
 import { createComponentStore } from "./components/store";
-import { createComputerGateway } from "./computer/gateway";
+import {
+  createComputerGateway,
+  ownComputer,
+  spaceComputer,
+} from "./computer/gateway";
 import { createHeadlessComputerTools } from "./computer/headless-tools";
 import { createPageFrameStore } from "./computer/page-frames";
 import { startPolicyListener } from "./computer/policy-listener";
@@ -174,6 +173,7 @@ import {
   createIntelligenceClient,
   observeIntelligenceAuthentication,
 } from "./intelligence-client";
+import { reportIntelligenceEntitlement } from "./intelligence-entitlement-check";
 import {
   createLearningAutoAssign,
   probeLearningContainer,
@@ -192,33 +192,54 @@ import { createMemoryDefaults } from "./memory/defaults";
 import { createMemoryIngestion } from "./memory/ingestion";
 import { createIntelligenceMemory } from "./memory/intelligence";
 import { createMemoryStore } from "./memory/store";
-import { reportModelAvailability } from "./model-availability-check";
 import { memoryTools } from "./memory/tools";
-import { appAccessTools } from "./plugins/app-access-tool";
+import { reportModelAvailability } from "./model-availability-check";
+import {
+  createChannelHello,
+  createDuetChannelStore,
+} from "./openduet/channels";
+import { createComputerCheck } from "./openduet/computer-check";
+import { createPageStore } from "./openduet/pages";
+import { withRunChannels } from "./openduet/run-channel";
+import {
+  createSetupSources,
+  modelKeyOf,
+  primaryBotIdOf,
+} from "./openduet/setup";
+import { createTaskReplyContext } from "./openduet/task-reply-context";
+import {
+  createTaskReportReader,
+  intelligenceHistory,
+} from "./openduet/task-report";
+import { createTaskStore } from "./openduet/task-store";
+import { createTaskThreads, createTaskTurn } from "./openduet/task-threads";
+import type { TaskStarter } from "./openduet/tasks";
+import { createOpenDuetTools, createTaskIntake } from "./openduet/wiring";
 import { createSignInNotifier, createSignInResumer } from "./passwords/resume";
 import { createSignInService } from "./passwords/service";
 import { createPasswordStore } from "./passwords/store";
 import { createOnboardingStore } from "./people/onboarding";
 import { createPeopleStore } from "./people/store";
-import { createAccountModeSwitch } from "./plugins/account-mode";
-import { assertActivatable, providerDecision } from "./plugins/broker";
 import { BROKERED_PROFILE } from "./plugins/access";
-import { useRoutineTools } from "./plugins/builtin-routines";
+import { createAccountModeSwitch } from "./plugins/account-mode";
+import { appAccessTools } from "./plugins/app-access-tool";
 import { useArcadeClient } from "./plugins/arcade";
 import { createArcadeClient } from "./plugins/arcade-adapter";
+import { assertActivatable, providerDecision } from "./plugins/broker";
+import { useRoutineTools } from "./plugins/builtin-routines";
 import { useComposioClient } from "./plugins/composio";
 import { createComposioClient } from "./plugins/composio-adapter";
 import { backfillBrokeredLogos } from "./plugins/logos";
 import { redirectUriFor } from "./plugins/oauth";
 import {
-  createSharedUseGate,
-  createSharedUseStore,
-} from "./plugins/shared-use-store";
-import {
   arcadeVerifierNotice,
   selectProviderWiring,
   storedProvider,
 } from "./plugins/provider-wiring";
+import {
+  createSharedUseGate,
+  createSharedUseStore,
+} from "./plugins/shared-use-store";
 import { createPluginStore } from "./plugins/store";
 import {
   grantedSkills,
@@ -264,28 +285,6 @@ import { createRoutineRunner } from "./routines/runner";
 import { createRoutineStore } from "./routines/store";
 import { createIntentRouter } from "./routing/classify";
 import { createModelCompleter } from "./routing/model";
-import {
-  createChannelHello,
-  createDuetChannelStore,
-} from "./openduet/channels";
-import { createComputerCheck } from "./openduet/computer-check";
-import { createPageStore } from "./openduet/pages";
-import { withRunChannels } from "./openduet/run-channel";
-import {
-  createSetupSources,
-  modelKeyOf,
-  primaryBotIdOf,
-} from "./openduet/setup";
-import {
-  createTaskReportReader,
-  intelligenceHistory,
-} from "./openduet/task-report";
-import { createTaskStore } from "./openduet/task-store";
-import { createTaskReplyContext } from "./openduet/task-reply-context";
-import { createTaskThreads, createTaskTurn } from "./openduet/task-threads";
-import type { TaskStarter } from "./openduet/tasks";
-import { createOpenDuetTools, createTaskIntake } from "./openduet/wiring";
-import { reportIntelligenceEntitlement } from "./intelligence-entitlement-check";
 import { createSelfHostBanner } from "./self-host-banner";
 import { createTeamBots } from "./team-bots/team-bots";
 import {
@@ -299,6 +298,12 @@ import { createVoiceSessionStore } from "./voice/sessions";
 import { createVoiceSummarizer } from "./voice/summary";
 import { repeatAfterEach } from "./work/loop";
 import { createWorkQueue, type WorkOfferedListener } from "./work/queue";
+import { createDesks } from "./workspace/desk";
+import { createDeskTools } from "./workspace/desk-tools";
+import { WorkspaceNotFoundError } from "./workspace/errors";
+import { createInvitations } from "./workspace/invitations";
+import { createWorkspaceRoutes } from "./workspace/routes";
+import { createWorkspace } from "./workspace/service";
 
 /**
  * Who is asking, for a CopilotKit request.
@@ -751,25 +756,55 @@ const routineIntelligence = observeIntelligenceAuthentication(
     apiKey: config.runtime.intelligence.apiKey,
   }),
 );
-const approvalComputerTools = async (
+/**
+ * Where a turn runs, from the thread it runs in: a shared channel's thread names its channel, and so
+ * its room and space. Null for every other thread, a person's own conversation with a Bot.
+ */
+const placeOfThread = async (threadId: string | undefined) => {
+  if (!threadId) return null;
+  const thread = await conversations.store.threadRow(threadId);
+  const place = thread ? await workspace.spaceOf(thread.channelId) : null;
+  return thread && place ? { channelId: thread.channelId, ...place } : null;
+};
+
+/**
+ * The computer and desk tools a server-run turn holds, decided by where it runs.
+ *
+ * In a space's channel the Bot works on the space's computer, the one every room and channel of the
+ * space shares, and holds the room's desk. Anywhere else it works on its own computer, as before. A
+ * Team Bot's teammate uses the Bot, not its owner's signed-in computer, in either place.
+ */
+const turnComputerTools = async (
   ownerUserId: string,
   agentId: string,
   initiator: AuditInitiator,
-) => {
+  threadId?: string,
+): Promise<HeadlessTool[]> => {
   const actor = await actorFor(ownerUserId);
   const profile = await agentProfileStore.get(actor, agentId);
   if (!profile)
     throw new ApprovalRefusedError("That Bot is no longer available to you.");
-  // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-  return computerGateway && canUseComputer(profile, actor)
-    ? createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
+  const place = await placeOfThread(threadId);
+  const deskTools = place
+    ? createDeskTools(desks, {
+        ...place,
+        agentId,
+        actingFor: ownerUserId,
       })
     : [];
+  if (!computerGateway || !canUseComputer(profile, actor)) return deskTools;
+  return [
+    ...deskTools,
+    ...createHeadlessComputerTools({
+      gateway: computerGateway,
+      computer: place
+        ? spaceComputer(place.spaceId, agentId)
+        : ownComputer(agentId),
+      actor: { id: actor.id, userId: actor.id, initiator },
+      auditStore: bootAuditStore,
+      ...(signInService ? { signIn: signInService } : {}),
+    }),
+  ];
 };
 
 const approvalService = createServerApprovalService({
@@ -781,7 +816,7 @@ const approvalService = createServerApprovalService({
   database,
   authoriseQuestion,
   routineIntelligence,
-  approvalComputerTools,
+  approvalComputerTools: turnComputerTools,
   review: (prompt, signal) => chooseSkills(prompt, signal),
   // Assigned further down, once delivery is wired.
   notify: (scope, input) => deliveryNotifications(scope, input),
@@ -1772,21 +1807,8 @@ const routineRunner = createRoutineRunner({
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator }) => {
-      if (!computerGateway) return [];
-      const actor = await actorFor(ownerUserId);
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (!profile) throw new Error("That Bot is not available to this owner.");
-      // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return [];
-      return createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      });
-    },
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+      turnComputerTools(ownerUserId, agentId, initiator, threadId),
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
       Promise.resolve(undefined),
@@ -1900,7 +1922,7 @@ const responsibilityAnswerTurn = ({
     components: componentCatalog,
     buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),
     toolsForTurn: async () => [
-      ...(await approvalComputerTools(
+      ...(await turnComputerTools(
         responsibility.ownerUserId,
         responsibility.agentId,
         initiator,
@@ -1949,7 +1971,7 @@ const approvalOwner = workOwner("approval");
 const executeApprovedAction = createApprovedActionExecutor({
   sourceFor: sourceForCoordinationRun,
   gate: approvalService.gate,
-  computerTools: approvalComputerTools,
+  computerTools: turnComputerTools,
   hostTools: ({ actorId, botId, initiator }) =>
     hostAccessTools({
       broker: hostAccessBroker,
@@ -1974,8 +1996,8 @@ const approvalContinuationRunner = createTurnRunner({
   runner: routineAgentRunner,
   components: componentCatalog,
   buildAgentFor,
-  toolsForTurn: async ({ ownerUserId, agentId, initiator }) =>
-    approvalComputerTools(ownerUserId, agentId, initiator),
+  toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+    turnComputerTools(ownerUserId, agentId, initiator, threadId),
   learningContainerForThread: (input) =>
     copilotRuntime.learning?.containerForThread(input) ??
     Promise.resolve(undefined),
@@ -2017,27 +2039,6 @@ const desks = createDesks({
   },
 });
 
-/**
- * The tools a shared channel's turn holds because of where it is: the room's desk. Resolved from the
- * Bot's thread, which names the channel, and so the room and space, the turn runs in.
- */
-const workspaceToolsForTurn = async (input: {
-  ownerUserId: string;
-  agentId: string;
-  threadId: string;
-}) => {
-  const thread = await conversations.store.threadRow(input.threadId);
-  const place = thread ? await workspace.spaceOf(thread.channelId) : null;
-  if (!thread || !place) return [];
-  return createDeskTools(desks, {
-    channelId: thread.channelId,
-    roomId: place.roomId,
-    spaceId: place.spaceId,
-    agentId: input.agentId,
-    actingFor: input.ownerUserId,
-  });
-};
-
 const conversations = createConversations({
   store: createConversationStore(database, () => threadIdentity.mint()),
   queue: createWorkQueue(database),
@@ -2050,29 +2051,8 @@ const conversations = createConversations({
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) => {
-      const placeTools = await workspaceToolsForTurn({
-        ownerUserId,
-        agentId,
-        threadId,
-      });
-      if (!computerGateway) return placeTools;
-      const actor = await actorFor(ownerUserId);
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (!profile) throw new Error("That Bot is not available to this owner.");
-      // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return placeTools;
-      return [
-        ...placeTools,
-        ...createHeadlessComputerTools({
-          gateway: computerGateway,
-          botId: agentId,
-          actor: { id: actor.id, userId: actor.id, initiator },
-          auditStore: bootAuditStore,
-          ...(signInService ? { signIn: signInService } : {}),
-        }),
-      ];
-    },
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+      turnComputerTools(ownerUserId, agentId, initiator, threadId),
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
       Promise.resolve(undefined),
@@ -2345,21 +2325,8 @@ const wakeUpRunner = createWakeUpRunner({
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator }) => {
-      if (!computerGateway) return [];
-      const actor = await actorFor(ownerUserId);
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (!profile) throw new Error("That Bot is not available to this owner.");
-      // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return [];
-      return createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      });
-    },
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+      turnComputerTools(ownerUserId, agentId, initiator, threadId),
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
       Promise.resolve(undefined),
@@ -2847,6 +2814,7 @@ const app = createApp(
         requireUser,
       ),
   ],
+  (userId, spaceId, need) => workspace.computerAccess(userId, spaceId, need),
 );
 
 const { addresses: listening } = startHttpServer({
@@ -2855,6 +2823,8 @@ const { addresses: listening } = startHttpServer({
   resolveRequestActor,
   agentProfileStore,
   computerGateway,
+  spaceComputerAccess: (userId, spaceId) =>
+    workspace.computerAccess(userId, spaceId, "drive"),
   demonstrationStore,
   demonstrationRecorder,
   app,

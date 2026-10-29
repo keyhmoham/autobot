@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { type AuditStore, recordAuditEvent } from "../audit";
-import type { ActionActor, ComputerGateway } from "../computer/gateway";
+import type {
+  ActionActor,
+  ComputerGateway,
+  ComputerRef,
+} from "../computer/gateway";
 import type { SignInCodeResult, SignInFillResult } from "../computer/schema";
 import { decryptSecret, encryptSecret } from "../credentials";
 import {
@@ -37,6 +41,17 @@ import {
  * Whatever happens, the Bot is told the outcome and never the credential. The audit rows say which
  * site, which request and how it was answered; they carry no username, password or code.
  */
+
+/** The computer a request is typed into: the one it was asked from. */
+function computerOf(
+  request: Pick<SignInRequestRecord, "botId" | "computerId">,
+): ComputerRef {
+  return {
+    botId: request.botId,
+    computerId: request.computerId ?? request.botId,
+  };
+}
+
 export type SignInService = ReturnType<typeof createSignInService>;
 
 export type SignInServiceDependencies = {
@@ -308,7 +323,7 @@ export function createSignInService(deps: SignInServiceDependencies) {
     // its login page, when only the whole login again can help.
     let back: "code_required" | "pending" = "code_required";
     try {
-      result = await gateway.signInCode(claimed.botId, {
+      result = await gateway.signInCode(computerOf(claimed), {
         origin: claimed.origin,
         code,
       });
@@ -413,7 +428,7 @@ export function createSignInService(deps: SignInServiceDependencies) {
     let result: SignInFillResult | undefined;
     let failure: string | undefined;
     try {
-      result = await gateway.signIn(claimed.botId, {
+      result = await gateway.signIn(computerOf(claimed), {
         origin: claimed.origin,
         ...(credential.username ? { username: credential.username } : {}),
         password: credential.password,
@@ -536,7 +551,7 @@ export function createSignInService(deps: SignInServiceDependencies) {
     /** A Bot asking. Returns the record; the caller decides how the turn waits on it. */
     async request(input: {
       ownerUserId: string;
-      botId: string;
+      computer: ComputerRef;
       site: string;
       reason?: string;
       actor: ActionActor;
@@ -550,7 +565,11 @@ export function createSignInService(deps: SignInServiceDependencies) {
       const request = await store.createRequest({
         id: randomUUID(),
         ownerUserId: input.ownerUserId,
-        botId: input.botId,
+        botId: input.computer.botId,
+        computerId:
+          input.computer.computerId === input.computer.botId
+            ? null
+            : input.computer.computerId,
         origin,
         reason: input.reason?.trim().slice(0, 500) || null,
         threadId: input.threadId ?? null,
@@ -562,9 +581,9 @@ export function createSignInService(deps: SignInServiceDependencies) {
         "computer.sign_in_requested",
         input.actor,
         "computer",
-        input.botId,
+        input.computer.botId,
         {
-          bot: input.botId,
+          bot: input.computer.botId,
           request: request.id,
           site: origin,
           ...(request.reason ? { reason: request.reason } : {}),
@@ -678,7 +697,7 @@ export function createSignInService(deps: SignInServiceDependencies) {
           409,
         );
       const state = await gateway.requestHelp(
-        request.botId,
+        computerOf(request),
         actor,
         `Sign in to ${request.origin}${request.reason ? `: ${request.reason}` : ""}`,
         request.toolCallId ?? undefined,

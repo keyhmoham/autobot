@@ -6,12 +6,16 @@ import {
   HttpAgent,
   type RunAgentInput,
 } from "@ag-ui/client";
+import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
+import { createTurnRunner, type RunnerLike } from "@openbot/toolkit/run-turn";
 import { Hono } from "hono";
 import { Observable } from "rxjs";
+import { serverTurnAdmission } from "../src/agents/turn-admission";
 import { parseApprovalContinuation } from "../src/approvals/types";
 import type { AuditEventInput, AuditStore } from "../src/audit";
 import type { AppVariables } from "../src/auth/guards";
 import type { ComputerGateway } from "../src/computer/gateway";
+import { ownComputer } from "../src/computer/gateway";
 import { createHeadlessComputerTools } from "../src/computer/headless-tools";
 import type {
   SignInCodeInput,
@@ -29,9 +33,6 @@ import {
 } from "../src/passwords/service";
 import { createMemoryPasswordStore } from "../src/passwords/store";
 import { originOf, type SignInRequestRecord } from "../src/passwords/types";
-import { createTurnRunner, type RunnerLike } from "@openbot/toolkit/run-turn";
-import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
-import { serverTurnAdmission } from "../src/agents/turn-admission";
 
 /**
  * The private sign-in request and the Passwords vault, as properties:
@@ -147,7 +148,7 @@ describe("a sign-in request answered with a typed login", () => {
     const { service, computer, trail, store, resolved } = setup();
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "https://example.com/login",
       reason: "to read the dashboard",
       actor,
@@ -205,7 +206,7 @@ describe("a sign-in request answered with a typed login", () => {
     });
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -227,7 +228,7 @@ describe("a sign-in request answered with a typed login", () => {
     });
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -245,7 +246,7 @@ describe("a saved login", () => {
     const context = setup(options);
     const first = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -264,7 +265,7 @@ describe("a saved login", () => {
     const { service, computer, login } = await withSaved();
     const next = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "https://example.com/other",
       actor,
     });
@@ -287,7 +288,7 @@ describe("a saved login", () => {
     const { service, computer, login } = await withSaved();
     const elsewhere = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "https://example.com.evil.test",
       actor,
     });
@@ -302,7 +303,7 @@ describe("a saved login", () => {
     const { service, login } = await withSaved();
     const theirs = await service.request({
       ownerUserId: "stranger",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor: { id: "stranger", userId: "stranger" },
     });
@@ -317,7 +318,7 @@ describe("a saved login", () => {
     const context = setup({ manager: false });
     const request = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -339,7 +340,7 @@ describe("the other answers", () => {
     const { service, computer, resolved } = setup();
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -356,7 +357,7 @@ describe("the other answers", () => {
     const { service, resolved } = setup();
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -379,7 +380,7 @@ describe("the other answers", () => {
     });
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -486,7 +487,7 @@ describe("a site that asks for a verification code after the password", () => {
     });
     const request = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -592,7 +593,7 @@ describe("a site that asks for a verification code after the password", () => {
     const { service, computer } = setup();
     const request = await service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -630,7 +631,7 @@ describe("a site that asks for a verification code after the password", () => {
     if (!login) throw new Error("not saved");
     const next = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -841,7 +842,7 @@ describe("an unattended turn that needs a sign-in", () => {
     const tools = async () =>
       createHeadlessComputerTools({
         gateway: {} as ComputerGateway,
-        botId: "bot",
+        computer: ownComputer("bot"),
         actor,
         signIn: context.service,
       }).filter((tool) => tool.definition.name === "computer_request_sign_in");
@@ -903,7 +904,7 @@ describe("a sign-in that is being entered", () => {
     const context = setup({ manager: false });
     const request = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -927,7 +928,7 @@ describe("a sign-in that is being entered", () => {
     };
     const request = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });
@@ -949,7 +950,7 @@ describe("a sign-in that is being entered", () => {
     const context = setup();
     const request = await context.service.request({
       ownerUserId: "owner",
-      botId: "bot",
+      computer: ownComputer("bot"),
       site: "example.com",
       actor,
     });

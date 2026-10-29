@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { titleFrom } from "../src/openduet/task-store";
 import {
   ADD_TASKS_TOOL,
   type AskedTask,
@@ -6,7 +7,6 @@ import {
   taskDetail,
   taskTools,
 } from "../src/openduet/tasks";
-import { titleFrom } from "../src/openduet/task-store";
 
 const INITIATOR = { kind: "person" } as const;
 

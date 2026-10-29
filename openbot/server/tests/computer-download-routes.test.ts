@@ -44,11 +44,11 @@ function gatewayThatReturns(name: string, bytes: Uint8Array) {
   }> = [];
   const gateway = {
     downloadFile: async (
-      botId: string,
+      { computerId }: { computerId: string },
       actor: { id: string },
       input: { path: string },
     ) => {
-      calls.push({ botId, actorId: actor.id, path: input.path });
+      calls.push({ botId: computerId, actorId: actor.id, path: input.path });
       return {
         body: bytes,
         bytes: bytes.byteLength,

@@ -64,6 +64,12 @@ export const signInRequests = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     botId: text("bot_id").notNull(),
+    /**
+     * The computer the sign-in is typed into: the Bot's own when null, a space's when the Bot asked
+     * from one of the space's channels. Kept on the request because the person answers later, from
+     * anywhere, and the login has to land in the browser that asked for it.
+     */
+    computerId: text("computer_id"),
     origin: text("origin").notNull(),
     reason: text("reason"),
     status: text("status").$type<SignInStatus>().notNull().default("pending"),

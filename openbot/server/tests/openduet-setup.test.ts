@@ -4,6 +4,7 @@ import { loadConfig } from "../src/config";
 import type { CredentialStatus } from "../src/credentials";
 import type { ModelCheckOutcome } from "../src/model-availability-check";
 import { createComputerCheck } from "../src/openduet/computer-check";
+import type { PageStore } from "../src/openduet/pages";
 import {
   type ComputerVerdict,
   createSetupSources,
@@ -18,7 +19,6 @@ import {
   type SetupRow,
   setupRows,
 } from "../src/openduet/setup";
-import type { PageStore } from "../src/openduet/pages";
 import type { AppAccessState } from "../src/plugins/app-access";
 import type { RuntimeEntitlementResponse } from "../src/self-host-banner";
 import { testEnvironment } from "./support/environment";

@@ -7,6 +7,16 @@ import {
   test,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
+import {
+  FIRST_DAY_REQUEST,
+  FIRST_DAY_REQUEST_WITHOUT_MAIL,
+  firstDayGreeting,
+  frameFirstDay,
+} from "@openbot/shared/first-day";
+import {
+  frameMorningBrief,
+  morningBriefMessage,
+} from "@openbot/shared/morning-brief";
 import { and, eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -29,16 +39,6 @@ import {
   parseChannelInput,
 } from "../src/channels/routes";
 import { createThreadIdentity } from "../src/channels/thread-identity";
-import {
-  FIRST_DAY_REQUEST,
-  FIRST_DAY_REQUEST_WITHOUT_MAIL,
-  firstDayGreeting,
-  frameFirstDay,
-} from "@openbot/shared/first-day";
-import {
-  frameMorningBrief,
-  morningBriefMessage,
-} from "@openbot/shared/morning-brief";
 import { loadConfig } from "../src/config";
 import { createDatabase } from "../src/db/client";
 import {

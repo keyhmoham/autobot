@@ -7,7 +7,7 @@
  * Offer then claim, like `work/culler.ts`. The offer is derived from the table rather than from an
  * event, so a missed sweep costs two seconds where a missed event would cost the name entirely.
  */
-import { and, asc, eq, isNull, notExists, sql } from "drizzle-orm";
+
 import {
   describeChannelHello,
   readChannelHello,
@@ -17,6 +17,7 @@ import { readFirstDay } from "@openbot/shared/first-day";
 import { readMorningBrief } from "@openbot/shared/morning-brief";
 import { readFiring } from "@openbot/shared/routine-firing";
 import { readTaskBrief } from "@openbot/shared/task-brief";
+import { and, asc, eq, isNull, notExists, sql } from "drizzle-orm";
 import type { Database } from "../db/client";
 import {
   channelMemberships,

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import type { AuditEventInput } from "../src/audit";
+import { ownComputer } from "../src/computer/gateway";
 import { createDatabase } from "../src/db/client";
 import { users } from "../src/db/schema/core";
 import { savedLogins, signInRequests } from "../src/db/schema/passwords";
@@ -61,7 +62,7 @@ afterAll(async () => {
 test("a request and a saved login are their owner's alone, and only the envelope is stored", async () => {
   const request = await service.request({
     ownerUserId: owner,
-    botId: `${prefix}-bot`,
+    computer: ownComputer(`${prefix}-bot`),
     site: "https://example.com/login",
     actor,
   });
@@ -140,7 +141,7 @@ test("a request waiting on its verification code is stored, listed, and then sig
   });
   const request = await mfa.request({
     ownerUserId: owner,
-    botId: `${prefix}-bot`,
+    computer: ownComputer(`${prefix}-bot`),
     site: "https://example.com/login",
     actor,
   });

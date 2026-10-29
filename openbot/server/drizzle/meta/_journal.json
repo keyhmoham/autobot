@@ -484,6 +484,13 @@
       "when": 1793294682058,
       "tag": "0068_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793296598286,
+      "tag": "0069_space_computer_sign_in",
+      "breakpoints": true
     }
   ]
 }

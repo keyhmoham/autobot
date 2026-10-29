@@ -16,8 +16,8 @@
  * that could not be read, a tool with no recorded effect.
  */
 import { OFFER_TASK_TOOL } from "@openbot/shared/check-in";
-import type { AuditInitiator } from "../audit";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
+import type { AuditInitiator } from "../audit";
 import { REFUSAL_MARKER } from "../plugins/tools";
 
 export const PROACTIVE_INITIATOR_PREFIX = "proactive:";

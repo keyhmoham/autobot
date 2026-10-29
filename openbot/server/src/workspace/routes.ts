@@ -5,12 +5,12 @@
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
 import type { AppVariables } from "../auth/guards";
+import type { Desks } from "./desk";
 import {
   WorkspaceForbiddenError,
   WorkspaceNotFoundError,
   WorkspaceRefusedError,
 } from "./errors";
-import type { Desks } from "./desk";
 import type { Invitations } from "./invitations";
 import type { Workspace } from "./service";
 
