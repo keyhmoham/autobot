@@ -23,6 +23,7 @@ export * from "./proactive";
 export * from "./responsibilities";
 export * from "./scim";
 export * from "./shared-use";
+export * from "./social";
 export * from "./team-bots";
 export * from "./timeline";
 export * from "./voice";

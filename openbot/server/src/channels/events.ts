@@ -75,8 +75,15 @@ export type WorkspaceEvent = {
   version?: number;
 };
 
+/** Something for one person's social side, to refetch: so far, that a notification arrived. */
+export type SocialEvent = {
+  type: "social";
+  memberIds: string[];
+  change: "notifications";
+};
+
 /** Anything delivered to a set of people over their channel socket. */
-export type MemberEvent = ChannelActivityEvent | WorkspaceEvent;
+export type MemberEvent = ChannelActivityEvent | WorkspaceEvent | SocialEvent;
 
 export type ChannelResyncEvent = { resync: true };
 

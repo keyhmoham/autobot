@@ -297,6 +297,8 @@ import { createRoutineRunner } from "./routines/runner";
 import { createRoutineStore } from "./routines/store";
 import { createIntentRouter } from "./routing/classify";
 import { createSelfHostBanner } from "./self-host-banner";
+import { createSocialRoutes } from "./social/routes";
+import { createSocial } from "./social/service";
 import { createTeamBots } from "./team-bots/team-bots";
 import {
   createPackageStatusReader,
@@ -2185,8 +2187,14 @@ const openDuetChannels = createDuetChannelStore({
  * own group thread, built exactly as a routine's is, so governance, learning and the computer tools
  * apply unchanged; Bots answering each other reuse the handoff desk's grant and caps.
  */
+// Profiles, follows, posts and notifications: see social/service.ts.
+const social = createSocial({
+  database,
+  discoverSpaces: (userId, query) => workspace.discover(userId, query),
+});
 const workspace = createWorkspace({
   database,
+  mayMessage: (fromUserId, toUserId) => social.mayMessage(fromUserId, toUserId),
   actorFor,
   profiles: agentProfileStore,
   auditStore: bootAuditStore,
@@ -2979,6 +2987,7 @@ const app = createApp(
     (requireUser) =>
       createWalletRoutes(wallets, requireUser, federatedTransfers),
     (requireUser) => [createTimelineRoutes(timeline, requireUser)],
+    (requireUser) => createSocialRoutes(social, requireUser),
     // Other nodes are answered on their signatures, never a person's session.
     () => [createPeerRoutes(federation)],
     (requireUser) => createFederationRoutes(federation, requireUser),

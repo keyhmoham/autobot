@@ -135,6 +135,11 @@ export type WorkspaceDeps = {
     name: string;
     purpose: string;
   }) => Promise<void>;
+  /**
+   * Whether one person may start a direct conversation with another, by the other's own choice
+   * (social/service.ts). Absent, anybody may. A conversation already started stays open either way.
+   */
+  mayMessage?: (fromUserId: string, toUserId: string) => Promise<boolean>;
   now?: () => Date;
 };
 
@@ -1142,6 +1147,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       .where(eq(users.id, otherId))
       .limit(1);
     if (!other) throw new WorkspaceNotFoundError("That person");
+    const allowed = deps.mayMessage
+      ? await deps.mayMessage(userId, otherId)
+      : true;
     const directKey = [userId, otherId].sort().join(":");
     const id = await database.transaction(async (transaction) => {
       const [existing] = await transaction
@@ -1158,6 +1166,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
             .where(eq(channels.id, existing.id));
         return existing.id;
       }
+      if (!allowed)
+        throw new WorkspaceForbiddenError(
+          `${other.name ?? other.email} is not taking direct messages from you.`,
+        );
       const id = newId("channel");
       await transaction.insert(channels).values({
         id,
