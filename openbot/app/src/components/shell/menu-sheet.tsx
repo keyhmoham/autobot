@@ -44,6 +44,8 @@ const MANAGE_PAGES: Page[] = [
   { label: "Capabilities", to: "/capabilities", icon: "box" },
   { label: "Routines", to: "/routines", icon: "repeat" },
   { label: "Approval rules", to: "/settings/approvals", icon: "shieldCheck" },
+  { label: "Wallet", to: "/wallet", icon: "deck" },
+  { label: "Access tokens", to: "/settings/access-tokens", icon: "key" },
 ];
 
 /** Whether Manage was left open, kept in this browser between visits. */
@@ -433,7 +435,10 @@ function RowText({
   );
 }
 
-/** One channel: its disc, its name and its purpose. A conversation with several Bots opens its group. */
+/**
+ * One channel: its disc, its name and its purpose. A conversation with several Bots opens under
+ * Spaces channels (the old `/group/<id>` path redirects there).
+ */
 function ChannelLink({
   channel,
   onOpen,
@@ -455,7 +460,7 @@ function ChannelLink({
       className={cn(TALL_ROW, className)}
       onClick={onOpen}
       params={{ channelId: channel.id }}
-      to="/group/$channelId"
+      to="/spaces/channels/$channelId"
     >
       {body}
     </Link>

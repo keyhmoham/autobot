@@ -865,7 +865,10 @@ describe("opening a conversation by its link", () => {
       thrown = error;
     }
     expect(thrown).toMatchObject({
-      options: { to: "/group/$channelId", params: { channelId: "c1" } },
+      options: {
+        to: "/spaces/channels/$channelId",
+        params: { channelId: "c1" },
+      },
     });
   });
 

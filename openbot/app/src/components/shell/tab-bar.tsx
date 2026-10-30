@@ -9,15 +9,17 @@ import { needsInputCount } from "@/lib/tasks/groups";
 import { taskListQueryOptions } from "@/lib/tasks/queries";
 import { cn } from "@/lib/utils";
 
-export type ShellTab = "chat" | "tasks" | "make";
+export type ShellTab = "chat" | "spaces" | "feed" | "tasks" | "make";
 
 const TABS: {
   id: ShellTab;
-  to: "/" | "/tasks" | "/make";
+  to: "/" | "/spaces" | "/feed" | "/tasks" | "/make";
   icon: DuetIconName;
   label: string;
 }[] = [
   { id: "chat", to: "/", icon: "chat", label: "Chat" },
+  { id: "spaces", to: "/spaces", icon: "layout", label: "Spaces" },
+  { id: "feed", to: "/feed", icon: "activity", label: "Feed" },
   { id: "tasks", to: "/tasks", icon: "tasks", label: "Tasks" },
   { id: "make", to: "/make", icon: "sparkle", label: "Make" },
 ];
@@ -27,13 +29,17 @@ const TABS: {
  * Make grid (`/make/<id>`) is still the Make tab, and a task over Tasks is still Tasks. A channel
  * (`/channels/<id>`) is a conversation like Chat's, under Chat's tab. A conversation opened from
  * the menu (`/channel/<id>`) is not Chat: it is a page, with a back disc and no tab bar
- * (parity-spec 2.9).
+ * (parity-spec 2.9). Spaces and Feed are the same: only their list is a tab; a space, room, desk,
+ * shared conversation, post or profile is a page, so it gets the page chrome those screens name
+ * with `usePageChrome` / PageShell.
  */
 export function tabForPath(pathname: string): ShellTab | null {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/") return "chat";
   // A channel is a conversation like Chat's, under the same header and tab bar.
   if (/^\/channels\/[^/]+$/.test(path)) return "chat";
+  if (path === "/spaces") return "spaces";
+  if (path === "/feed") return "feed";
   // A task opens over the Tasks list, so the list's tab stays current under it.
   if (path === "/tasks" || /^\/tasks\/[^/]+$/.test(path)) return "tasks";
   if (path === "/make" || /^\/make\/[^/]+$/.test(path)) return "make";
@@ -41,9 +47,9 @@ export function tabForPath(pathname: string): ShellTab | null {
 }
 
 /**
- * The floating pill at the foot of the app: Chat, Tasks and Make, the current one on a grey
- * capsule. Tasks carries the number of things waiting on the person, counted the way its Needs input
- * group lists them (`needsInputCount`), so the badge and the screen never disagree.
+ * The floating pill at the foot of the app: Chat, Spaces, Feed, Tasks and Make, the current one on
+ * a grey capsule. Tasks carries the number of things waiting on the person, counted the way its
+ * Needs input group lists them (`needsInputCount`), so the badge and the screen never disagree.
  *
  * The capsule slides from the tab left to the one chosen (one element, moved by transform), so the
  * eye follows the change instead of finding the capsule gone from one place and drawn in another.
@@ -60,7 +66,7 @@ export function TabBar({ current }: { current: ShellTab }) {
   return (
     <nav
       aria-label="Main"
-      className="duet-face duet-glass absolute inset-x-0 bottom-[22px] z-20 mx-auto flex h-16 w-[344px] max-w-[calc(100%-32px)] gap-0.5 rounded-[32px] p-[5px] shadow-duet-glass"
+      className="duet-face duet-glass absolute inset-x-0 bottom-[22px] z-20 mx-auto flex h-16 w-[min(420px,calc(100%-24px))] max-w-[calc(100%-24px)] gap-0.5 rounded-[32px] p-[5px] shadow-duet-glass"
     >
       {TABS.map((tab) => {
         const on = tab.id === current;
@@ -70,10 +76,13 @@ export function TabBar({ current }: { current: ShellTab }) {
             /*
              * What is announced is what is drawn: the tab `current` names carries aria-current. The
              * router sets it on its own active link too, so its matching is made to agree: exact for
-             * Chat ("/" would match all three), and Tasks and Make also over a task or a page open on
-             * them.
+             * Chat, Spaces and Feed (only their list path); Tasks and Make also over a detail open
+             * on them.
              */
-            activeOptions={{ exact: tab.id === "chat" }}
+            activeOptions={{
+              exact:
+                tab.id === "chat" || tab.id === "spaces" || tab.id === "feed",
+            }}
             aria-current={on ? "page" : undefined}
             aria-label={badge ? `${tab.label}, ${badge} waiting` : tab.label}
             className={cn(

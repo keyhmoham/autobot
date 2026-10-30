@@ -20,6 +20,8 @@ import { Route as AuthedAppActivityRouteImport } from './routes/_authed/_app/act
 import { Route as AuthedAppApprovalsRouteImport } from './routes/_authed/_app/approvals'
 import { Route as AuthedAppBotRouteImport } from './routes/_authed/_app/bot'
 import { Route as AuthedAppCapabilitiesRouteImport } from './routes/_authed/_app/capabilities'
+import { Route as AuthedAppDirectsRouteImport } from './routes/_authed/_app/directs'
+import { Route as AuthedAppFeedRouteImport } from './routes/_authed/_app/feed'
 import { Route as AuthedAppInboxRouteImport } from './routes/_authed/_app/inbox'
 import { Route as AuthedAppMakeRouteImport } from './routes/_authed/_app/make'
 import { Route as AuthedAppMemoryRouteImport } from './routes/_authed/_app/memory'
@@ -27,26 +29,34 @@ import { Route as AuthedAppReachabilityRouteImport } from './routes/_authed/_app
 import { Route as AuthedAppResponsibilitiesRouteImport } from './routes/_authed/_app/responsibilities'
 import { Route as AuthedAppRoutinesRouteImport } from './routes/_authed/_app/routines'
 import { Route as AuthedAppSkillsRouteImport } from './routes/_authed/_app/skills'
+import { Route as AuthedAppSpacesRouteImport } from './routes/_authed/_app/spaces'
 import { Route as AuthedAppStartRouteImport } from './routes/_authed/_app/start'
 import { Route as AuthedAppTasksRouteImport } from './routes/_authed/_app/tasks'
 import { Route as AuthedAppTeamBotsRouteImport } from './routes/_authed/_app/team-bots'
+import { Route as AuthedAppWalletRouteImport } from './routes/_authed/_app/wallet'
 import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/index'
 import { Route as AuthedAdminApprovalsRouteImport } from './routes/_authed/admin/approvals'
 import { Route as AuthedAdminAuditRouteImport } from './routes/_authed/admin/audit'
+import { Route as AuthedAdminBillingRouteImport } from './routes/_authed/admin/billing'
 import { Route as AuthedAdminBoundariesRouteImport } from './routes/_authed/admin/boundaries'
 import { Route as AuthedAdminComputersRouteImport } from './routes/_authed/admin/computers'
 import { Route as AuthedAdminCredentialsRouteImport } from './routes/_authed/admin/credentials'
 import { Route as AuthedAdminEnterpriseRouteImport } from './routes/_authed/admin/enterprise'
+import { Route as AuthedAdminFederationRouteImport } from './routes/_authed/admin/federation'
 import { Route as AuthedAdminIdentityProvidersRouteImport } from './routes/_authed/admin/identity-providers'
 import { Route as AuthedAdminLearningRouteImport } from './routes/_authed/admin/learning'
+import { Route as AuthedAdminModelsRouteImport } from './routes/_authed/admin/models'
 import { Route as AuthedAdminPeopleRouteImport } from './routes/_authed/admin/people'
 import { Route as AuthedAdminPlaygroundRouteImport } from './routes/_authed/admin/playground'
+import { Route as AuthedAdminReportsRouteImport } from './routes/_authed/admin/reports'
 import { Route as AuthedAdminSkillsRouteImport } from './routes/_authed/admin/skills'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedSettingsAccessTokensRouteImport } from './routes/_authed/settings/access-tokens'
 import { Route as AuthedSettingsApprovalsRouteImport } from './routes/_authed/settings/approvals'
 import { Route as AuthedSettingsMemoryRouteImport } from './routes/_authed/settings/memory'
 import { Route as AuthedSettingsNotificationsRouteImport } from './routes/_authed/settings/notifications'
 import { Route as AuthedSettingsPasswordsRouteImport } from './routes/_authed/settings/passwords'
+import { Route as AuthedSettingsProfileRouteImport } from './routes/_authed/settings/profile'
 import { Route as AuthedSettingsSetupRouteImport } from './routes/_authed/settings/setup'
 import { Route as AuthedSignInRequestIdRouteImport } from './routes/_authed/sign-in/$requestId'
 import { Route as AuthedAppAgentsIndexRouteImport } from './routes/_authed/_app/agents/index'
@@ -59,11 +69,14 @@ import { Route as AuthedAppChannelNewRouteImport } from './routes/_authed/_app/c
 import { Route as AuthedAppChannelsChannelIdRouteImport } from './routes/_authed/_app/channels.$channelId'
 import { Route as AuthedAppConnectionsIndexRouteImport } from './routes/_authed/_app/connections.index'
 import { Route as AuthedAppConnectionsKeyRouteImport } from './routes/_authed/_app/connections.$key'
+import { Route as AuthedAppFeedExploreRouteImport } from './routes/_authed/_app/feed.explore'
+import { Route as AuthedAppFeedNotificationsRouteImport } from './routes/_authed/_app/feed.notifications'
 import { Route as AuthedAppGroupChannelIdRouteImport } from './routes/_authed/_app/group/$channelId'
 import { Route as AuthedAppGroupNewRouteImport } from './routes/_authed/_app/group/new'
 import { Route as AuthedAppMakePageIdRouteImport } from './routes/_authed/_app/make.$pageId'
 import { Route as AuthedAppPagesIndexRouteImport } from './routes/_authed/_app/pages.index'
 import { Route as AuthedAppPagesPageIdRouteImport } from './routes/_authed/_app/pages.$pageId'
+import { Route as AuthedAppSpacesSpaceIdRouteImport } from './routes/_authed/_app/spaces.$spaceId'
 import { Route as AuthedAppTasksTaskIdRouteImport } from './routes/_authed/_app/tasks.$taskId'
 import { Route as AuthedAdminComponentsIndexRouteImport } from './routes/_authed/admin/components/index'
 import { Route as AuthedAdminComponentsNameRouteImport } from './routes/_authed/admin/components/$name'
@@ -84,7 +97,13 @@ import { Route as AuthedAppBotsAgentIdResponsibilitiesRouteImport } from './rout
 import { Route as AuthedAppBotsAgentIdRoutinesRouteImport } from './routes/_authed/_app/bots.$agentId.routines'
 import { Route as AuthedAppBotsAgentIdSetupRouteImport } from './routes/_authed/_app/bots.$agentId.setup'
 import { Route as AuthedAppBotsAgentIdSharingRouteImport } from './routes/_authed/_app/bots.$agentId.sharing'
+import { Route as AuthedAppFeedPeopleHandleRouteImport } from './routes/_authed/_app/feed.people.$handle'
+import { Route as AuthedAppFeedPostsPostIdRouteImport } from './routes/_authed/_app/feed.posts.$postId'
+import { Route as AuthedAppSpacesSpaceIdAppsRouteImport } from './routes/_authed/_app/spaces.$spaceId.apps'
+import { Route as AuthedAppSpacesChannelsChannelIdRouteImport } from './routes/_authed/_app/spaces.channels.$channelId'
 import { Route as AuthedAppTasksQuestionsQuestionIdRouteImport } from './routes/_authed/_app/tasks.questions.$questionId'
+import { Route as AuthedAppSpacesSpaceIdAppsAppIdRouteImport } from './routes/_authed/_app/spaces.$spaceId.apps.$appId'
+import { Route as AuthedAppSpacesSpaceIdRoomsRoomIdRouteImport } from './routes/_authed/_app/spaces.$spaceId.rooms.$roomId'
 import { Route as AuthedAdminPluginsKeyBotsAgentIdRouteImport } from './routes/_authed/admin/plugins/$key_.bots.$agentId'
 import { Route as AuthedAdminPluginsKeyToolsToolRouteImport } from './routes/_authed/admin/plugins/$key_.tools.$tool'
 
@@ -141,6 +160,16 @@ const AuthedAppCapabilitiesRoute = AuthedAppCapabilitiesRouteImport.update({
   path: '/capabilities',
   getParentRoute: () => AuthedAppRoute,
 } as any)
+const AuthedAppDirectsRoute = AuthedAppDirectsRouteImport.update({
+  id: '/directs',
+  path: '/directs',
+  getParentRoute: () => AuthedAppRoute,
+} as any)
+const AuthedAppFeedRoute = AuthedAppFeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => AuthedAppRoute,
+} as any)
 const AuthedAppInboxRoute = AuthedAppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -177,6 +206,11 @@ const AuthedAppSkillsRoute = AuthedAppSkillsRouteImport.update({
   path: '/skills',
   getParentRoute: () => AuthedAppRoute,
 } as any)
+const AuthedAppSpacesRoute = AuthedAppSpacesRouteImport.update({
+  id: '/spaces',
+  path: '/spaces',
+  getParentRoute: () => AuthedAppRoute,
+} as any)
 const AuthedAppStartRoute = AuthedAppStartRouteImport.update({
   id: '/start',
   path: '/start',
@@ -192,6 +226,11 @@ const AuthedAppTeamBotsRoute = AuthedAppTeamBotsRouteImport.update({
   path: '/team-bots',
   getParentRoute: () => AuthedAppRoute,
 } as any)
+const AuthedAppWalletRoute = AuthedAppWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => AuthedAppRoute,
+} as any)
 const AuthedAdminIndexRoute = AuthedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -205,6 +244,11 @@ const AuthedAdminApprovalsRoute = AuthedAdminApprovalsRouteImport.update({
 const AuthedAdminAuditRoute = AuthedAdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
+const AuthedAdminBillingRoute = AuthedAdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
 const AuthedAdminBoundariesRoute = AuthedAdminBoundariesRouteImport.update({
@@ -227,6 +271,11 @@ const AuthedAdminEnterpriseRoute = AuthedAdminEnterpriseRouteImport.update({
   path: '/enterprise',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const AuthedAdminFederationRoute = AuthedAdminFederationRouteImport.update({
+  id: '/federation',
+  path: '/federation',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
 const AuthedAdminIdentityProvidersRoute =
   AuthedAdminIdentityProvidersRouteImport.update({
     id: '/identity-providers',
@@ -236,6 +285,11 @@ const AuthedAdminIdentityProvidersRoute =
 const AuthedAdminLearningRoute = AuthedAdminLearningRouteImport.update({
   id: '/learning',
   path: '/learning',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
+const AuthedAdminModelsRoute = AuthedAdminModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
 const AuthedAdminPeopleRoute = AuthedAdminPeopleRouteImport.update({
@@ -248,6 +302,11 @@ const AuthedAdminPlaygroundRoute = AuthedAdminPlaygroundRouteImport.update({
   path: '/playground',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const AuthedAdminReportsRoute = AuthedAdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
 const AuthedAdminSkillsRoute = AuthedAdminSkillsRouteImport.update({
   id: '/skills',
   path: '/skills',
@@ -258,6 +317,12 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedSettingsRouteRoute,
 } as any)
+const AuthedSettingsAccessTokensRoute =
+  AuthedSettingsAccessTokensRouteImport.update({
+    id: '/access-tokens',
+    path: '/access-tokens',
+    getParentRoute: () => AuthedSettingsRouteRoute,
+  } as any)
 const AuthedSettingsApprovalsRoute = AuthedSettingsApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
@@ -277,6 +342,11 @@ const AuthedSettingsNotificationsRoute =
 const AuthedSettingsPasswordsRoute = AuthedSettingsPasswordsRouteImport.update({
   id: '/passwords',
   path: '/passwords',
+  getParentRoute: () => AuthedSettingsRouteRoute,
+} as any)
+const AuthedSettingsProfileRoute = AuthedSettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => AuthedSettingsRouteRoute,
 } as any)
 const AuthedSettingsSetupRoute = AuthedSettingsSetupRouteImport.update({
@@ -345,6 +415,17 @@ const AuthedAppConnectionsKeyRoute = AuthedAppConnectionsKeyRouteImport.update({
   path: '/connections/$key',
   getParentRoute: () => AuthedAppRoute,
 } as any)
+const AuthedAppFeedExploreRoute = AuthedAppFeedExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
+  getParentRoute: () => AuthedAppFeedRoute,
+} as any)
+const AuthedAppFeedNotificationsRoute =
+  AuthedAppFeedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthedAppFeedRoute,
+  } as any)
 const AuthedAppGroupChannelIdRoute = AuthedAppGroupChannelIdRouteImport.update({
   id: '/group/$channelId',
   path: '/group/$channelId',
@@ -369,6 +450,11 @@ const AuthedAppPagesPageIdRoute = AuthedAppPagesPageIdRouteImport.update({
   id: '/pages/$pageId',
   path: '/pages/$pageId',
   getParentRoute: () => AuthedAppRoute,
+} as any)
+const AuthedAppSpacesSpaceIdRoute = AuthedAppSpacesSpaceIdRouteImport.update({
+  id: '/$spaceId',
+  path: '/$spaceId',
+  getParentRoute: () => AuthedAppSpacesRoute,
 } as any)
 const AuthedAppTasksTaskIdRoute = AuthedAppTasksTaskIdRouteImport.update({
   id: '/$taskId',
@@ -487,11 +573,47 @@ const AuthedAppBotsAgentIdSharingRoute =
     path: '/bots/$agentId/sharing',
     getParentRoute: () => AuthedAppRoute,
   } as any)
+const AuthedAppFeedPeopleHandleRoute =
+  AuthedAppFeedPeopleHandleRouteImport.update({
+    id: '/people/$handle',
+    path: '/people/$handle',
+    getParentRoute: () => AuthedAppFeedRoute,
+  } as any)
+const AuthedAppFeedPostsPostIdRoute =
+  AuthedAppFeedPostsPostIdRouteImport.update({
+    id: '/posts/$postId',
+    path: '/posts/$postId',
+    getParentRoute: () => AuthedAppFeedRoute,
+  } as any)
+const AuthedAppSpacesSpaceIdAppsRoute =
+  AuthedAppSpacesSpaceIdAppsRouteImport.update({
+    id: '/apps',
+    path: '/apps',
+    getParentRoute: () => AuthedAppSpacesSpaceIdRoute,
+  } as any)
+const AuthedAppSpacesChannelsChannelIdRoute =
+  AuthedAppSpacesChannelsChannelIdRouteImport.update({
+    id: '/channels/$channelId',
+    path: '/channels/$channelId',
+    getParentRoute: () => AuthedAppSpacesRoute,
+  } as any)
 const AuthedAppTasksQuestionsQuestionIdRoute =
   AuthedAppTasksQuestionsQuestionIdRouteImport.update({
     id: '/questions/$questionId',
     path: '/questions/$questionId',
     getParentRoute: () => AuthedAppTasksRoute,
+  } as any)
+const AuthedAppSpacesSpaceIdAppsAppIdRoute =
+  AuthedAppSpacesSpaceIdAppsAppIdRouteImport.update({
+    id: '/$appId',
+    path: '/$appId',
+    getParentRoute: () => AuthedAppSpacesSpaceIdAppsRoute,
+  } as any)
+const AuthedAppSpacesSpaceIdRoomsRoomIdRoute =
+  AuthedAppSpacesSpaceIdRoomsRoomIdRouteImport.update({
+    id: '/rooms/$roomId',
+    path: '/rooms/$roomId',
+    getParentRoute: () => AuthedAppSpacesSpaceIdRoute,
   } as any)
 const AuthedAdminPluginsKeyBotsAgentIdRoute =
   AuthedAdminPluginsKeyBotsAgentIdRouteImport.update({
@@ -516,6 +638,8 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof AuthedAppApprovalsRoute
   '/bot': typeof AuthedAppBotRoute
   '/capabilities': typeof AuthedAppCapabilitiesRouteWithChildren
+  '/directs': typeof AuthedAppDirectsRoute
+  '/feed': typeof AuthedAppFeedRouteWithChildren
   '/inbox': typeof AuthedAppInboxRoute
   '/make': typeof AuthedAppMakeRouteWithChildren
   '/memory': typeof AuthedAppMemoryRoute
@@ -523,24 +647,32 @@ export interface FileRoutesByFullPath {
   '/responsibilities': typeof AuthedAppResponsibilitiesRoute
   '/routines': typeof AuthedAppRoutinesRoute
   '/skills': typeof AuthedAppSkillsRoute
+  '/spaces': typeof AuthedAppSpacesRouteWithChildren
   '/start': typeof AuthedAppStartRoute
   '/tasks': typeof AuthedAppTasksRouteWithChildren
   '/team-bots': typeof AuthedAppTeamBotsRoute
+  '/wallet': typeof AuthedAppWalletRoute
   '/admin/approvals': typeof AuthedAdminApprovalsRoute
   '/admin/audit': typeof AuthedAdminAuditRoute
+  '/admin/billing': typeof AuthedAdminBillingRoute
   '/admin/boundaries': typeof AuthedAdminBoundariesRoute
   '/admin/computers': typeof AuthedAdminComputersRoute
   '/admin/credentials': typeof AuthedAdminCredentialsRoute
   '/admin/enterprise': typeof AuthedAdminEnterpriseRoute
+  '/admin/federation': typeof AuthedAdminFederationRoute
   '/admin/identity-providers': typeof AuthedAdminIdentityProvidersRoute
   '/admin/learning': typeof AuthedAdminLearningRoute
+  '/admin/models': typeof AuthedAdminModelsRoute
   '/admin/people': typeof AuthedAdminPeopleRoute
   '/admin/playground': typeof AuthedAdminPlaygroundRoute
+  '/admin/reports': typeof AuthedAdminReportsRoute
   '/admin/skills': typeof AuthedAdminSkillsRoute
+  '/settings/access-tokens': typeof AuthedSettingsAccessTokensRoute
   '/settings/approvals': typeof AuthedSettingsApprovalsRoute
   '/settings/memory': typeof AuthedSettingsMemoryRoute
   '/settings/notifications': typeof AuthedSettingsNotificationsRoute
   '/settings/passwords': typeof AuthedSettingsPasswordsRoute
+  '/settings/profile': typeof AuthedSettingsProfileRoute
   '/settings/setup': typeof AuthedSettingsSetupRoute
   '/sign-in/$requestId': typeof AuthedSignInRequestIdRoute
   '/admin/': typeof AuthedAdminIndexRoute
@@ -551,10 +683,13 @@ export interface FileRoutesByFullPath {
   '/channel/new': typeof AuthedAppChannelNewRoute
   '/channels/$channelId': typeof AuthedAppChannelsChannelIdRoute
   '/connections/$key': typeof AuthedAppConnectionsKeyRoute
+  '/feed/explore': typeof AuthedAppFeedExploreRoute
+  '/feed/notifications': typeof AuthedAppFeedNotificationsRoute
   '/group/$channelId': typeof AuthedAppGroupChannelIdRoute
   '/group/new': typeof AuthedAppGroupNewRoute
   '/make/$pageId': typeof AuthedAppMakePageIdRoute
   '/pages/$pageId': typeof AuthedAppPagesPageIdRoute
+  '/spaces/$spaceId': typeof AuthedAppSpacesSpaceIdRouteWithChildren
   '/tasks/$taskId': typeof AuthedAppTasksTaskIdRoute
   '/admin/components/$name': typeof AuthedAdminComponentsNameRoute
   '/admin/plugins/$key': typeof AuthedAdminPluginsKeyRoute
@@ -579,8 +714,14 @@ export interface FileRoutesByFullPath {
   '/bots/$agentId/routines': typeof AuthedAppBotsAgentIdRoutinesRoute
   '/bots/$agentId/setup': typeof AuthedAppBotsAgentIdSetupRoute
   '/bots/$agentId/sharing': typeof AuthedAppBotsAgentIdSharingRoute
+  '/feed/people/$handle': typeof AuthedAppFeedPeopleHandleRoute
+  '/feed/posts/$postId': typeof AuthedAppFeedPostsPostIdRoute
+  '/spaces/$spaceId/apps': typeof AuthedAppSpacesSpaceIdAppsRouteWithChildren
+  '/spaces/channels/$channelId': typeof AuthedAppSpacesChannelsChannelIdRoute
   '/tasks/questions/$questionId': typeof AuthedAppTasksQuestionsQuestionIdRoute
   '/bots/$agentId/': typeof AuthedAppBotsAgentIdIndexRoute
+  '/spaces/$spaceId/apps/$appId': typeof AuthedAppSpacesSpaceIdAppsAppIdRoute
+  '/spaces/$spaceId/rooms/$roomId': typeof AuthedAppSpacesSpaceIdRoomsRoomIdRoute
   '/admin/plugins/$key/bots/$agentId': typeof AuthedAdminPluginsKeyBotsAgentIdRoute
   '/admin/plugins/$key/tools/$tool': typeof AuthedAdminPluginsKeyToolsToolRoute
 }
@@ -591,6 +732,8 @@ export interface FileRoutesByTo {
   '/activity': typeof AuthedAppActivityRoute
   '/approvals': typeof AuthedAppApprovalsRoute
   '/bot': typeof AuthedAppBotRoute
+  '/directs': typeof AuthedAppDirectsRoute
+  '/feed': typeof AuthedAppFeedRouteWithChildren
   '/inbox': typeof AuthedAppInboxRoute
   '/make': typeof AuthedAppMakeRouteWithChildren
   '/memory': typeof AuthedAppMemoryRoute
@@ -598,24 +741,32 @@ export interface FileRoutesByTo {
   '/responsibilities': typeof AuthedAppResponsibilitiesRoute
   '/routines': typeof AuthedAppRoutinesRoute
   '/skills': typeof AuthedAppSkillsRoute
+  '/spaces': typeof AuthedAppSpacesRouteWithChildren
   '/start': typeof AuthedAppStartRoute
   '/tasks': typeof AuthedAppTasksRouteWithChildren
   '/team-bots': typeof AuthedAppTeamBotsRoute
+  '/wallet': typeof AuthedAppWalletRoute
   '/admin/approvals': typeof AuthedAdminApprovalsRoute
   '/admin/audit': typeof AuthedAdminAuditRoute
+  '/admin/billing': typeof AuthedAdminBillingRoute
   '/admin/boundaries': typeof AuthedAdminBoundariesRoute
   '/admin/computers': typeof AuthedAdminComputersRoute
   '/admin/credentials': typeof AuthedAdminCredentialsRoute
   '/admin/enterprise': typeof AuthedAdminEnterpriseRoute
+  '/admin/federation': typeof AuthedAdminFederationRoute
   '/admin/identity-providers': typeof AuthedAdminIdentityProvidersRoute
   '/admin/learning': typeof AuthedAdminLearningRoute
+  '/admin/models': typeof AuthedAdminModelsRoute
   '/admin/people': typeof AuthedAdminPeopleRoute
   '/admin/playground': typeof AuthedAdminPlaygroundRoute
+  '/admin/reports': typeof AuthedAdminReportsRoute
   '/admin/skills': typeof AuthedAdminSkillsRoute
+  '/settings/access-tokens': typeof AuthedSettingsAccessTokensRoute
   '/settings/approvals': typeof AuthedSettingsApprovalsRoute
   '/settings/memory': typeof AuthedSettingsMemoryRoute
   '/settings/notifications': typeof AuthedSettingsNotificationsRoute
   '/settings/passwords': typeof AuthedSettingsPasswordsRoute
+  '/settings/profile': typeof AuthedSettingsProfileRoute
   '/settings/setup': typeof AuthedSettingsSetupRoute
   '/sign-in/$requestId': typeof AuthedSignInRequestIdRoute
   '/admin': typeof AuthedAdminIndexRoute
@@ -626,10 +777,13 @@ export interface FileRoutesByTo {
   '/channel/new': typeof AuthedAppChannelNewRoute
   '/channels/$channelId': typeof AuthedAppChannelsChannelIdRoute
   '/connections/$key': typeof AuthedAppConnectionsKeyRoute
+  '/feed/explore': typeof AuthedAppFeedExploreRoute
+  '/feed/notifications': typeof AuthedAppFeedNotificationsRoute
   '/group/$channelId': typeof AuthedAppGroupChannelIdRoute
   '/group/new': typeof AuthedAppGroupNewRoute
   '/make/$pageId': typeof AuthedAppMakePageIdRoute
   '/pages/$pageId': typeof AuthedAppPagesPageIdRoute
+  '/spaces/$spaceId': typeof AuthedAppSpacesSpaceIdRouteWithChildren
   '/tasks/$taskId': typeof AuthedAppTasksTaskIdRoute
   '/admin/components/$name': typeof AuthedAdminComponentsNameRoute
   '/admin/plugins/$key': typeof AuthedAdminPluginsKeyRoute
@@ -654,8 +808,14 @@ export interface FileRoutesByTo {
   '/bots/$agentId/routines': typeof AuthedAppBotsAgentIdRoutinesRoute
   '/bots/$agentId/setup': typeof AuthedAppBotsAgentIdSetupRoute
   '/bots/$agentId/sharing': typeof AuthedAppBotsAgentIdSharingRoute
+  '/feed/people/$handle': typeof AuthedAppFeedPeopleHandleRoute
+  '/feed/posts/$postId': typeof AuthedAppFeedPostsPostIdRoute
+  '/spaces/$spaceId/apps': typeof AuthedAppSpacesSpaceIdAppsRouteWithChildren
+  '/spaces/channels/$channelId': typeof AuthedAppSpacesChannelsChannelIdRoute
   '/tasks/questions/$questionId': typeof AuthedAppTasksQuestionsQuestionIdRoute
   '/bots/$agentId': typeof AuthedAppBotsAgentIdIndexRoute
+  '/spaces/$spaceId/apps/$appId': typeof AuthedAppSpacesSpaceIdAppsAppIdRoute
+  '/spaces/$spaceId/rooms/$roomId': typeof AuthedAppSpacesSpaceIdRoomsRoomIdRoute
   '/admin/plugins/$key/bots/$agentId': typeof AuthedAdminPluginsKeyBotsAgentIdRoute
   '/admin/plugins/$key/tools/$tool': typeof AuthedAdminPluginsKeyToolsToolRoute
 }
@@ -671,6 +831,8 @@ export interface FileRoutesById {
   '/_authed/_app/approvals': typeof AuthedAppApprovalsRoute
   '/_authed/_app/bot': typeof AuthedAppBotRoute
   '/_authed/_app/capabilities': typeof AuthedAppCapabilitiesRouteWithChildren
+  '/_authed/_app/directs': typeof AuthedAppDirectsRoute
+  '/_authed/_app/feed': typeof AuthedAppFeedRouteWithChildren
   '/_authed/_app/inbox': typeof AuthedAppInboxRoute
   '/_authed/_app/make': typeof AuthedAppMakeRouteWithChildren
   '/_authed/_app/memory': typeof AuthedAppMemoryRoute
@@ -678,24 +840,32 @@ export interface FileRoutesById {
   '/_authed/_app/responsibilities': typeof AuthedAppResponsibilitiesRoute
   '/_authed/_app/routines': typeof AuthedAppRoutinesRoute
   '/_authed/_app/skills': typeof AuthedAppSkillsRoute
+  '/_authed/_app/spaces': typeof AuthedAppSpacesRouteWithChildren
   '/_authed/_app/start': typeof AuthedAppStartRoute
   '/_authed/_app/tasks': typeof AuthedAppTasksRouteWithChildren
   '/_authed/_app/team-bots': typeof AuthedAppTeamBotsRoute
+  '/_authed/_app/wallet': typeof AuthedAppWalletRoute
   '/_authed/admin/approvals': typeof AuthedAdminApprovalsRoute
   '/_authed/admin/audit': typeof AuthedAdminAuditRoute
+  '/_authed/admin/billing': typeof AuthedAdminBillingRoute
   '/_authed/admin/boundaries': typeof AuthedAdminBoundariesRoute
   '/_authed/admin/computers': typeof AuthedAdminComputersRoute
   '/_authed/admin/credentials': typeof AuthedAdminCredentialsRoute
   '/_authed/admin/enterprise': typeof AuthedAdminEnterpriseRoute
+  '/_authed/admin/federation': typeof AuthedAdminFederationRoute
   '/_authed/admin/identity-providers': typeof AuthedAdminIdentityProvidersRoute
   '/_authed/admin/learning': typeof AuthedAdminLearningRoute
+  '/_authed/admin/models': typeof AuthedAdminModelsRoute
   '/_authed/admin/people': typeof AuthedAdminPeopleRoute
   '/_authed/admin/playground': typeof AuthedAdminPlaygroundRoute
+  '/_authed/admin/reports': typeof AuthedAdminReportsRoute
   '/_authed/admin/skills': typeof AuthedAdminSkillsRoute
+  '/_authed/settings/access-tokens': typeof AuthedSettingsAccessTokensRoute
   '/_authed/settings/approvals': typeof AuthedSettingsApprovalsRoute
   '/_authed/settings/memory': typeof AuthedSettingsMemoryRoute
   '/_authed/settings/notifications': typeof AuthedSettingsNotificationsRoute
   '/_authed/settings/passwords': typeof AuthedSettingsPasswordsRoute
+  '/_authed/settings/profile': typeof AuthedSettingsProfileRoute
   '/_authed/settings/setup': typeof AuthedSettingsSetupRoute
   '/_authed/sign-in/$requestId': typeof AuthedSignInRequestIdRoute
   '/_authed/_app/': typeof AuthedAppIndexRoute
@@ -707,10 +877,13 @@ export interface FileRoutesById {
   '/_authed/_app/channel/new': typeof AuthedAppChannelNewRoute
   '/_authed/_app/channels/$channelId': typeof AuthedAppChannelsChannelIdRoute
   '/_authed/_app/connections/$key': typeof AuthedAppConnectionsKeyRoute
+  '/_authed/_app/feed/explore': typeof AuthedAppFeedExploreRoute
+  '/_authed/_app/feed/notifications': typeof AuthedAppFeedNotificationsRoute
   '/_authed/_app/group/$channelId': typeof AuthedAppGroupChannelIdRoute
   '/_authed/_app/group/new': typeof AuthedAppGroupNewRoute
   '/_authed/_app/make/$pageId': typeof AuthedAppMakePageIdRoute
   '/_authed/_app/pages/$pageId': typeof AuthedAppPagesPageIdRoute
+  '/_authed/_app/spaces/$spaceId': typeof AuthedAppSpacesSpaceIdRouteWithChildren
   '/_authed/_app/tasks/$taskId': typeof AuthedAppTasksTaskIdRoute
   '/_authed/admin/components/$name': typeof AuthedAdminComponentsNameRoute
   '/_authed/admin/plugins/$key': typeof AuthedAdminPluginsKeyRoute
@@ -735,8 +908,14 @@ export interface FileRoutesById {
   '/_authed/_app/bots/$agentId/routines': typeof AuthedAppBotsAgentIdRoutinesRoute
   '/_authed/_app/bots/$agentId/setup': typeof AuthedAppBotsAgentIdSetupRoute
   '/_authed/_app/bots/$agentId/sharing': typeof AuthedAppBotsAgentIdSharingRoute
+  '/_authed/_app/feed/people/$handle': typeof AuthedAppFeedPeopleHandleRoute
+  '/_authed/_app/feed/posts/$postId': typeof AuthedAppFeedPostsPostIdRoute
+  '/_authed/_app/spaces/$spaceId/apps': typeof AuthedAppSpacesSpaceIdAppsRouteWithChildren
+  '/_authed/_app/spaces/channels/$channelId': typeof AuthedAppSpacesChannelsChannelIdRoute
   '/_authed/_app/tasks/questions/$questionId': typeof AuthedAppTasksQuestionsQuestionIdRoute
   '/_authed/_app/bots/$agentId/': typeof AuthedAppBotsAgentIdIndexRoute
+  '/_authed/_app/spaces/$spaceId/apps/$appId': typeof AuthedAppSpacesSpaceIdAppsAppIdRoute
+  '/_authed/_app/spaces/$spaceId/rooms/$roomId': typeof AuthedAppSpacesSpaceIdRoomsRoomIdRoute
   '/_authed/admin/plugins/$key_/bots/$agentId': typeof AuthedAdminPluginsKeyBotsAgentIdRoute
   '/_authed/admin/plugins/$key_/tools/$tool': typeof AuthedAdminPluginsKeyToolsToolRoute
 }
@@ -752,6 +931,8 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/bot'
     | '/capabilities'
+    | '/directs'
+    | '/feed'
     | '/inbox'
     | '/make'
     | '/memory'
@@ -759,24 +940,32 @@ export interface FileRouteTypes {
     | '/responsibilities'
     | '/routines'
     | '/skills'
+    | '/spaces'
     | '/start'
     | '/tasks'
     | '/team-bots'
+    | '/wallet'
     | '/admin/approvals'
     | '/admin/audit'
+    | '/admin/billing'
     | '/admin/boundaries'
     | '/admin/computers'
     | '/admin/credentials'
     | '/admin/enterprise'
+    | '/admin/federation'
     | '/admin/identity-providers'
     | '/admin/learning'
+    | '/admin/models'
     | '/admin/people'
     | '/admin/playground'
+    | '/admin/reports'
     | '/admin/skills'
+    | '/settings/access-tokens'
     | '/settings/approvals'
     | '/settings/memory'
     | '/settings/notifications'
     | '/settings/passwords'
+    | '/settings/profile'
     | '/settings/setup'
     | '/sign-in/$requestId'
     | '/admin/'
@@ -787,10 +976,13 @@ export interface FileRouteTypes {
     | '/channel/new'
     | '/channels/$channelId'
     | '/connections/$key'
+    | '/feed/explore'
+    | '/feed/notifications'
     | '/group/$channelId'
     | '/group/new'
     | '/make/$pageId'
     | '/pages/$pageId'
+    | '/spaces/$spaceId'
     | '/tasks/$taskId'
     | '/admin/components/$name'
     | '/admin/plugins/$key'
@@ -815,8 +1007,14 @@ export interface FileRouteTypes {
     | '/bots/$agentId/routines'
     | '/bots/$agentId/setup'
     | '/bots/$agentId/sharing'
+    | '/feed/people/$handle'
+    | '/feed/posts/$postId'
+    | '/spaces/$spaceId/apps'
+    | '/spaces/channels/$channelId'
     | '/tasks/questions/$questionId'
     | '/bots/$agentId/'
+    | '/spaces/$spaceId/apps/$appId'
+    | '/spaces/$spaceId/rooms/$roomId'
     | '/admin/plugins/$key/bots/$agentId'
     | '/admin/plugins/$key/tools/$tool'
   fileRoutesByTo: FileRoutesByTo
@@ -827,6 +1025,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/approvals'
     | '/bot'
+    | '/directs'
+    | '/feed'
     | '/inbox'
     | '/make'
     | '/memory'
@@ -834,24 +1034,32 @@ export interface FileRouteTypes {
     | '/responsibilities'
     | '/routines'
     | '/skills'
+    | '/spaces'
     | '/start'
     | '/tasks'
     | '/team-bots'
+    | '/wallet'
     | '/admin/approvals'
     | '/admin/audit'
+    | '/admin/billing'
     | '/admin/boundaries'
     | '/admin/computers'
     | '/admin/credentials'
     | '/admin/enterprise'
+    | '/admin/federation'
     | '/admin/identity-providers'
     | '/admin/learning'
+    | '/admin/models'
     | '/admin/people'
     | '/admin/playground'
+    | '/admin/reports'
     | '/admin/skills'
+    | '/settings/access-tokens'
     | '/settings/approvals'
     | '/settings/memory'
     | '/settings/notifications'
     | '/settings/passwords'
+    | '/settings/profile'
     | '/settings/setup'
     | '/sign-in/$requestId'
     | '/admin'
@@ -862,10 +1070,13 @@ export interface FileRouteTypes {
     | '/channel/new'
     | '/channels/$channelId'
     | '/connections/$key'
+    | '/feed/explore'
+    | '/feed/notifications'
     | '/group/$channelId'
     | '/group/new'
     | '/make/$pageId'
     | '/pages/$pageId'
+    | '/spaces/$spaceId'
     | '/tasks/$taskId'
     | '/admin/components/$name'
     | '/admin/plugins/$key'
@@ -890,8 +1101,14 @@ export interface FileRouteTypes {
     | '/bots/$agentId/routines'
     | '/bots/$agentId/setup'
     | '/bots/$agentId/sharing'
+    | '/feed/people/$handle'
+    | '/feed/posts/$postId'
+    | '/spaces/$spaceId/apps'
+    | '/spaces/channels/$channelId'
     | '/tasks/questions/$questionId'
     | '/bots/$agentId'
+    | '/spaces/$spaceId/apps/$appId'
+    | '/spaces/$spaceId/rooms/$roomId'
     | '/admin/plugins/$key/bots/$agentId'
     | '/admin/plugins/$key/tools/$tool'
   id:
@@ -906,6 +1123,8 @@ export interface FileRouteTypes {
     | '/_authed/_app/approvals'
     | '/_authed/_app/bot'
     | '/_authed/_app/capabilities'
+    | '/_authed/_app/directs'
+    | '/_authed/_app/feed'
     | '/_authed/_app/inbox'
     | '/_authed/_app/make'
     | '/_authed/_app/memory'
@@ -913,24 +1132,32 @@ export interface FileRouteTypes {
     | '/_authed/_app/responsibilities'
     | '/_authed/_app/routines'
     | '/_authed/_app/skills'
+    | '/_authed/_app/spaces'
     | '/_authed/_app/start'
     | '/_authed/_app/tasks'
     | '/_authed/_app/team-bots'
+    | '/_authed/_app/wallet'
     | '/_authed/admin/approvals'
     | '/_authed/admin/audit'
+    | '/_authed/admin/billing'
     | '/_authed/admin/boundaries'
     | '/_authed/admin/computers'
     | '/_authed/admin/credentials'
     | '/_authed/admin/enterprise'
+    | '/_authed/admin/federation'
     | '/_authed/admin/identity-providers'
     | '/_authed/admin/learning'
+    | '/_authed/admin/models'
     | '/_authed/admin/people'
     | '/_authed/admin/playground'
+    | '/_authed/admin/reports'
     | '/_authed/admin/skills'
+    | '/_authed/settings/access-tokens'
     | '/_authed/settings/approvals'
     | '/_authed/settings/memory'
     | '/_authed/settings/notifications'
     | '/_authed/settings/passwords'
+    | '/_authed/settings/profile'
     | '/_authed/settings/setup'
     | '/_authed/sign-in/$requestId'
     | '/_authed/_app/'
@@ -942,10 +1169,13 @@ export interface FileRouteTypes {
     | '/_authed/_app/channel/new'
     | '/_authed/_app/channels/$channelId'
     | '/_authed/_app/connections/$key'
+    | '/_authed/_app/feed/explore'
+    | '/_authed/_app/feed/notifications'
     | '/_authed/_app/group/$channelId'
     | '/_authed/_app/group/new'
     | '/_authed/_app/make/$pageId'
     | '/_authed/_app/pages/$pageId'
+    | '/_authed/_app/spaces/$spaceId'
     | '/_authed/_app/tasks/$taskId'
     | '/_authed/admin/components/$name'
     | '/_authed/admin/plugins/$key'
@@ -970,8 +1200,14 @@ export interface FileRouteTypes {
     | '/_authed/_app/bots/$agentId/routines'
     | '/_authed/_app/bots/$agentId/setup'
     | '/_authed/_app/bots/$agentId/sharing'
+    | '/_authed/_app/feed/people/$handle'
+    | '/_authed/_app/feed/posts/$postId'
+    | '/_authed/_app/spaces/$spaceId/apps'
+    | '/_authed/_app/spaces/channels/$channelId'
     | '/_authed/_app/tasks/questions/$questionId'
     | '/_authed/_app/bots/$agentId/'
+    | '/_authed/_app/spaces/$spaceId/apps/$appId'
+    | '/_authed/_app/spaces/$spaceId/rooms/$roomId'
     | '/_authed/admin/plugins/$key_/bots/$agentId'
     | '/_authed/admin/plugins/$key_/tools/$tool'
   fileRoutesById: FileRoutesById
@@ -1060,6 +1296,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAppCapabilitiesRouteImport
       parentRoute: typeof AuthedAppRoute
     }
+    '/_authed/_app/directs': {
+      id: '/_authed/_app/directs'
+      path: '/directs'
+      fullPath: '/directs'
+      preLoaderRoute: typeof AuthedAppDirectsRouteImport
+      parentRoute: typeof AuthedAppRoute
+    }
+    '/_authed/_app/feed': {
+      id: '/_authed/_app/feed'
+      path: '/feed'
+      fullPath: '/feed'
+      preLoaderRoute: typeof AuthedAppFeedRouteImport
+      parentRoute: typeof AuthedAppRoute
+    }
     '/_authed/_app/inbox': {
       id: '/_authed/_app/inbox'
       path: '/inbox'
@@ -1109,6 +1359,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAppSkillsRouteImport
       parentRoute: typeof AuthedAppRoute
     }
+    '/_authed/_app/spaces': {
+      id: '/_authed/_app/spaces'
+      path: '/spaces'
+      fullPath: '/spaces'
+      preLoaderRoute: typeof AuthedAppSpacesRouteImport
+      parentRoute: typeof AuthedAppRoute
+    }
     '/_authed/_app/start': {
       id: '/_authed/_app/start'
       path: '/start'
@@ -1130,6 +1387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAppTeamBotsRouteImport
       parentRoute: typeof AuthedAppRoute
     }
+    '/_authed/_app/wallet': {
+      id: '/_authed/_app/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof AuthedAppWalletRouteImport
+      parentRoute: typeof AuthedAppRoute
+    }
     '/_authed/admin/': {
       id: '/_authed/admin/'
       path: '/'
@@ -1149,6 +1413,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/admin/audit'
       preLoaderRoute: typeof AuthedAdminAuditRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
+    '/_authed/admin/billing': {
+      id: '/_authed/admin/billing'
+      path: '/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AuthedAdminBillingRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
     '/_authed/admin/boundaries': {
@@ -1179,6 +1450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminEnterpriseRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
+    '/_authed/admin/federation': {
+      id: '/_authed/admin/federation'
+      path: '/federation'
+      fullPath: '/admin/federation'
+      preLoaderRoute: typeof AuthedAdminFederationRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
     '/_authed/admin/identity-providers': {
       id: '/_authed/admin/identity-providers'
       path: '/identity-providers'
@@ -1191,6 +1469,13 @@ declare module '@tanstack/react-router' {
       path: '/learning'
       fullPath: '/admin/learning'
       preLoaderRoute: typeof AuthedAdminLearningRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
+    '/_authed/admin/models': {
+      id: '/_authed/admin/models'
+      path: '/models'
+      fullPath: '/admin/models'
+      preLoaderRoute: typeof AuthedAdminModelsRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
     '/_authed/admin/people': {
@@ -1207,6 +1492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminPlaygroundRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
+    '/_authed/admin/reports': {
+      id: '/_authed/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AuthedAdminReportsRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
     '/_authed/admin/skills': {
       id: '/_authed/admin/skills'
       path: '/skills'
@@ -1219,6 +1511,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+      parentRoute: typeof AuthedSettingsRouteRoute
+    }
+    '/_authed/settings/access-tokens': {
+      id: '/_authed/settings/access-tokens'
+      path: '/access-tokens'
+      fullPath: '/settings/access-tokens'
+      preLoaderRoute: typeof AuthedSettingsAccessTokensRouteImport
       parentRoute: typeof AuthedSettingsRouteRoute
     }
     '/_authed/settings/approvals': {
@@ -1247,6 +1546,13 @@ declare module '@tanstack/react-router' {
       path: '/passwords'
       fullPath: '/settings/passwords'
       preLoaderRoute: typeof AuthedSettingsPasswordsRouteImport
+      parentRoute: typeof AuthedSettingsRouteRoute
+    }
+    '/_authed/settings/profile': {
+      id: '/_authed/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AuthedSettingsProfileRouteImport
       parentRoute: typeof AuthedSettingsRouteRoute
     }
     '/_authed/settings/setup': {
@@ -1333,6 +1639,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAppConnectionsKeyRouteImport
       parentRoute: typeof AuthedAppRoute
     }
+    '/_authed/_app/feed/explore': {
+      id: '/_authed/_app/feed/explore'
+      path: '/explore'
+      fullPath: '/feed/explore'
+      preLoaderRoute: typeof AuthedAppFeedExploreRouteImport
+      parentRoute: typeof AuthedAppFeedRoute
+    }
+    '/_authed/_app/feed/notifications': {
+      id: '/_authed/_app/feed/notifications'
+      path: '/notifications'
+      fullPath: '/feed/notifications'
+      preLoaderRoute: typeof AuthedAppFeedNotificationsRouteImport
+      parentRoute: typeof AuthedAppFeedRoute
+    }
     '/_authed/_app/group/$channelId': {
       id: '/_authed/_app/group/$channelId'
       path: '/group/$channelId'
@@ -1367,6 +1687,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/pages/$pageId'
       preLoaderRoute: typeof AuthedAppPagesPageIdRouteImport
       parentRoute: typeof AuthedAppRoute
+    }
+    '/_authed/_app/spaces/$spaceId': {
+      id: '/_authed/_app/spaces/$spaceId'
+      path: '/$spaceId'
+      fullPath: '/spaces/$spaceId'
+      preLoaderRoute: typeof AuthedAppSpacesSpaceIdRouteImport
+      parentRoute: typeof AuthedAppSpacesRoute
     }
     '/_authed/_app/tasks/$taskId': {
       id: '/_authed/_app/tasks/$taskId'
@@ -1508,12 +1835,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAppBotsAgentIdSharingRouteImport
       parentRoute: typeof AuthedAppRoute
     }
+    '/_authed/_app/feed/people/$handle': {
+      id: '/_authed/_app/feed/people/$handle'
+      path: '/people/$handle'
+      fullPath: '/feed/people/$handle'
+      preLoaderRoute: typeof AuthedAppFeedPeopleHandleRouteImport
+      parentRoute: typeof AuthedAppFeedRoute
+    }
+    '/_authed/_app/feed/posts/$postId': {
+      id: '/_authed/_app/feed/posts/$postId'
+      path: '/posts/$postId'
+      fullPath: '/feed/posts/$postId'
+      preLoaderRoute: typeof AuthedAppFeedPostsPostIdRouteImport
+      parentRoute: typeof AuthedAppFeedRoute
+    }
+    '/_authed/_app/spaces/$spaceId/apps': {
+      id: '/_authed/_app/spaces/$spaceId/apps'
+      path: '/apps'
+      fullPath: '/spaces/$spaceId/apps'
+      preLoaderRoute: typeof AuthedAppSpacesSpaceIdAppsRouteImport
+      parentRoute: typeof AuthedAppSpacesSpaceIdRoute
+    }
+    '/_authed/_app/spaces/channels/$channelId': {
+      id: '/_authed/_app/spaces/channels/$channelId'
+      path: '/channels/$channelId'
+      fullPath: '/spaces/channels/$channelId'
+      preLoaderRoute: typeof AuthedAppSpacesChannelsChannelIdRouteImport
+      parentRoute: typeof AuthedAppSpacesRoute
+    }
     '/_authed/_app/tasks/questions/$questionId': {
       id: '/_authed/_app/tasks/questions/$questionId'
       path: '/questions/$questionId'
       fullPath: '/tasks/questions/$questionId'
       preLoaderRoute: typeof AuthedAppTasksQuestionsQuestionIdRouteImport
       parentRoute: typeof AuthedAppTasksRoute
+    }
+    '/_authed/_app/spaces/$spaceId/apps/$appId': {
+      id: '/_authed/_app/spaces/$spaceId/apps/$appId'
+      path: '/$appId'
+      fullPath: '/spaces/$spaceId/apps/$appId'
+      preLoaderRoute: typeof AuthedAppSpacesSpaceIdAppsAppIdRouteImport
+      parentRoute: typeof AuthedAppSpacesSpaceIdAppsRoute
+    }
+    '/_authed/_app/spaces/$spaceId/rooms/$roomId': {
+      id: '/_authed/_app/spaces/$spaceId/rooms/$roomId'
+      path: '/rooms/$roomId'
+      fullPath: '/spaces/$spaceId/rooms/$roomId'
+      preLoaderRoute: typeof AuthedAppSpacesSpaceIdRoomsRoomIdRouteImport
+      parentRoute: typeof AuthedAppSpacesSpaceIdRoute
     }
     '/_authed/admin/plugins/$key_/bots/$agentId': {
       id: '/_authed/admin/plugins/$key_/bots/$agentId'
@@ -1535,14 +1904,18 @@ declare module '@tanstack/react-router' {
 interface AuthedAdminRouteRouteChildren {
   AuthedAdminApprovalsRoute: typeof AuthedAdminApprovalsRoute
   AuthedAdminAuditRoute: typeof AuthedAdminAuditRoute
+  AuthedAdminBillingRoute: typeof AuthedAdminBillingRoute
   AuthedAdminBoundariesRoute: typeof AuthedAdminBoundariesRoute
   AuthedAdminComputersRoute: typeof AuthedAdminComputersRoute
   AuthedAdminCredentialsRoute: typeof AuthedAdminCredentialsRoute
   AuthedAdminEnterpriseRoute: typeof AuthedAdminEnterpriseRoute
+  AuthedAdminFederationRoute: typeof AuthedAdminFederationRoute
   AuthedAdminIdentityProvidersRoute: typeof AuthedAdminIdentityProvidersRoute
   AuthedAdminLearningRoute: typeof AuthedAdminLearningRoute
+  AuthedAdminModelsRoute: typeof AuthedAdminModelsRoute
   AuthedAdminPeopleRoute: typeof AuthedAdminPeopleRoute
   AuthedAdminPlaygroundRoute: typeof AuthedAdminPlaygroundRoute
+  AuthedAdminReportsRoute: typeof AuthedAdminReportsRoute
   AuthedAdminSkillsRoute: typeof AuthedAdminSkillsRoute
   AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
   AuthedAdminComponentsNameRoute: typeof AuthedAdminComponentsNameRoute
@@ -1558,14 +1931,18 @@ interface AuthedAdminRouteRouteChildren {
 const AuthedAdminRouteRouteChildren: AuthedAdminRouteRouteChildren = {
   AuthedAdminApprovalsRoute: AuthedAdminApprovalsRoute,
   AuthedAdminAuditRoute: AuthedAdminAuditRoute,
+  AuthedAdminBillingRoute: AuthedAdminBillingRoute,
   AuthedAdminBoundariesRoute: AuthedAdminBoundariesRoute,
   AuthedAdminComputersRoute: AuthedAdminComputersRoute,
   AuthedAdminCredentialsRoute: AuthedAdminCredentialsRoute,
   AuthedAdminEnterpriseRoute: AuthedAdminEnterpriseRoute,
+  AuthedAdminFederationRoute: AuthedAdminFederationRoute,
   AuthedAdminIdentityProvidersRoute: AuthedAdminIdentityProvidersRoute,
   AuthedAdminLearningRoute: AuthedAdminLearningRoute,
+  AuthedAdminModelsRoute: AuthedAdminModelsRoute,
   AuthedAdminPeopleRoute: AuthedAdminPeopleRoute,
   AuthedAdminPlaygroundRoute: AuthedAdminPlaygroundRoute,
+  AuthedAdminReportsRoute: AuthedAdminReportsRoute,
   AuthedAdminSkillsRoute: AuthedAdminSkillsRoute,
   AuthedAdminIndexRoute: AuthedAdminIndexRoute,
   AuthedAdminComponentsNameRoute: AuthedAdminComponentsNameRoute,
@@ -1582,10 +1959,12 @@ const AuthedAdminRouteRouteWithChildren =
   AuthedAdminRouteRoute._addFileChildren(AuthedAdminRouteRouteChildren)
 
 interface AuthedSettingsRouteRouteChildren {
+  AuthedSettingsAccessTokensRoute: typeof AuthedSettingsAccessTokensRoute
   AuthedSettingsApprovalsRoute: typeof AuthedSettingsApprovalsRoute
   AuthedSettingsMemoryRoute: typeof AuthedSettingsMemoryRoute
   AuthedSettingsNotificationsRoute: typeof AuthedSettingsNotificationsRoute
   AuthedSettingsPasswordsRoute: typeof AuthedSettingsPasswordsRoute
+  AuthedSettingsProfileRoute: typeof AuthedSettingsProfileRoute
   AuthedSettingsSetupRoute: typeof AuthedSettingsSetupRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
   AuthedSettingsComponentsGalleryNameRoute: typeof AuthedSettingsComponentsGalleryNameRoute
@@ -1595,10 +1974,12 @@ interface AuthedSettingsRouteRouteChildren {
 }
 
 const AuthedSettingsRouteRouteChildren: AuthedSettingsRouteRouteChildren = {
+  AuthedSettingsAccessTokensRoute: AuthedSettingsAccessTokensRoute,
   AuthedSettingsApprovalsRoute: AuthedSettingsApprovalsRoute,
   AuthedSettingsMemoryRoute: AuthedSettingsMemoryRoute,
   AuthedSettingsNotificationsRoute: AuthedSettingsNotificationsRoute,
   AuthedSettingsPasswordsRoute: AuthedSettingsPasswordsRoute,
+  AuthedSettingsProfileRoute: AuthedSettingsProfileRoute,
   AuthedSettingsSetupRoute: AuthedSettingsSetupRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
   AuthedSettingsComponentsGalleryNameRoute:
@@ -1631,6 +2012,24 @@ const AuthedAppCapabilitiesRouteWithChildren =
     AuthedAppCapabilitiesRouteChildren,
   )
 
+interface AuthedAppFeedRouteChildren {
+  AuthedAppFeedExploreRoute: typeof AuthedAppFeedExploreRoute
+  AuthedAppFeedNotificationsRoute: typeof AuthedAppFeedNotificationsRoute
+  AuthedAppFeedPeopleHandleRoute: typeof AuthedAppFeedPeopleHandleRoute
+  AuthedAppFeedPostsPostIdRoute: typeof AuthedAppFeedPostsPostIdRoute
+}
+
+const AuthedAppFeedRouteChildren: AuthedAppFeedRouteChildren = {
+  AuthedAppFeedExploreRoute: AuthedAppFeedExploreRoute,
+  AuthedAppFeedNotificationsRoute: AuthedAppFeedNotificationsRoute,
+  AuthedAppFeedPeopleHandleRoute: AuthedAppFeedPeopleHandleRoute,
+  AuthedAppFeedPostsPostIdRoute: AuthedAppFeedPostsPostIdRoute,
+}
+
+const AuthedAppFeedRouteWithChildren = AuthedAppFeedRoute._addFileChildren(
+  AuthedAppFeedRouteChildren,
+)
+
 interface AuthedAppMakeRouteChildren {
   AuthedAppMakePageIdRoute: typeof AuthedAppMakePageIdRoute
 }
@@ -1641,6 +2040,52 @@ const AuthedAppMakeRouteChildren: AuthedAppMakeRouteChildren = {
 
 const AuthedAppMakeRouteWithChildren = AuthedAppMakeRoute._addFileChildren(
   AuthedAppMakeRouteChildren,
+)
+
+interface AuthedAppSpacesSpaceIdAppsRouteChildren {
+  AuthedAppSpacesSpaceIdAppsAppIdRoute: typeof AuthedAppSpacesSpaceIdAppsAppIdRoute
+}
+
+const AuthedAppSpacesSpaceIdAppsRouteChildren: AuthedAppSpacesSpaceIdAppsRouteChildren =
+  {
+    AuthedAppSpacesSpaceIdAppsAppIdRoute: AuthedAppSpacesSpaceIdAppsAppIdRoute,
+  }
+
+const AuthedAppSpacesSpaceIdAppsRouteWithChildren =
+  AuthedAppSpacesSpaceIdAppsRoute._addFileChildren(
+    AuthedAppSpacesSpaceIdAppsRouteChildren,
+  )
+
+interface AuthedAppSpacesSpaceIdRouteChildren {
+  AuthedAppSpacesSpaceIdAppsRoute: typeof AuthedAppSpacesSpaceIdAppsRouteWithChildren
+  AuthedAppSpacesSpaceIdRoomsRoomIdRoute: typeof AuthedAppSpacesSpaceIdRoomsRoomIdRoute
+}
+
+const AuthedAppSpacesSpaceIdRouteChildren: AuthedAppSpacesSpaceIdRouteChildren =
+  {
+    AuthedAppSpacesSpaceIdAppsRoute:
+      AuthedAppSpacesSpaceIdAppsRouteWithChildren,
+    AuthedAppSpacesSpaceIdRoomsRoomIdRoute:
+      AuthedAppSpacesSpaceIdRoomsRoomIdRoute,
+  }
+
+const AuthedAppSpacesSpaceIdRouteWithChildren =
+  AuthedAppSpacesSpaceIdRoute._addFileChildren(
+    AuthedAppSpacesSpaceIdRouteChildren,
+  )
+
+interface AuthedAppSpacesRouteChildren {
+  AuthedAppSpacesSpaceIdRoute: typeof AuthedAppSpacesSpaceIdRouteWithChildren
+  AuthedAppSpacesChannelsChannelIdRoute: typeof AuthedAppSpacesChannelsChannelIdRoute
+}
+
+const AuthedAppSpacesRouteChildren: AuthedAppSpacesRouteChildren = {
+  AuthedAppSpacesSpaceIdRoute: AuthedAppSpacesSpaceIdRouteWithChildren,
+  AuthedAppSpacesChannelsChannelIdRoute: AuthedAppSpacesChannelsChannelIdRoute,
+}
+
+const AuthedAppSpacesRouteWithChildren = AuthedAppSpacesRoute._addFileChildren(
+  AuthedAppSpacesRouteChildren,
 )
 
 interface AuthedAppTasksRouteChildren {
@@ -1663,6 +2108,8 @@ interface AuthedAppRouteChildren {
   AuthedAppApprovalsRoute: typeof AuthedAppApprovalsRoute
   AuthedAppBotRoute: typeof AuthedAppBotRoute
   AuthedAppCapabilitiesRoute: typeof AuthedAppCapabilitiesRouteWithChildren
+  AuthedAppDirectsRoute: typeof AuthedAppDirectsRoute
+  AuthedAppFeedRoute: typeof AuthedAppFeedRouteWithChildren
   AuthedAppInboxRoute: typeof AuthedAppInboxRoute
   AuthedAppMakeRoute: typeof AuthedAppMakeRouteWithChildren
   AuthedAppMemoryRoute: typeof AuthedAppMemoryRoute
@@ -1670,9 +2117,11 @@ interface AuthedAppRouteChildren {
   AuthedAppResponsibilitiesRoute: typeof AuthedAppResponsibilitiesRoute
   AuthedAppRoutinesRoute: typeof AuthedAppRoutinesRoute
   AuthedAppSkillsRoute: typeof AuthedAppSkillsRoute
+  AuthedAppSpacesRoute: typeof AuthedAppSpacesRouteWithChildren
   AuthedAppStartRoute: typeof AuthedAppStartRoute
   AuthedAppTasksRoute: typeof AuthedAppTasksRouteWithChildren
   AuthedAppTeamBotsRoute: typeof AuthedAppTeamBotsRoute
+  AuthedAppWalletRoute: typeof AuthedAppWalletRoute
   AuthedAppIndexRoute: typeof AuthedAppIndexRoute
   AuthedAppChannelChannelIdRoute: typeof AuthedAppChannelChannelIdRoute
   AuthedAppChannelNewRoute: typeof AuthedAppChannelNewRoute
@@ -1701,6 +2150,8 @@ const AuthedAppRouteChildren: AuthedAppRouteChildren = {
   AuthedAppApprovalsRoute: AuthedAppApprovalsRoute,
   AuthedAppBotRoute: AuthedAppBotRoute,
   AuthedAppCapabilitiesRoute: AuthedAppCapabilitiesRouteWithChildren,
+  AuthedAppDirectsRoute: AuthedAppDirectsRoute,
+  AuthedAppFeedRoute: AuthedAppFeedRouteWithChildren,
   AuthedAppInboxRoute: AuthedAppInboxRoute,
   AuthedAppMakeRoute: AuthedAppMakeRouteWithChildren,
   AuthedAppMemoryRoute: AuthedAppMemoryRoute,
@@ -1708,9 +2159,11 @@ const AuthedAppRouteChildren: AuthedAppRouteChildren = {
   AuthedAppResponsibilitiesRoute: AuthedAppResponsibilitiesRoute,
   AuthedAppRoutinesRoute: AuthedAppRoutinesRoute,
   AuthedAppSkillsRoute: AuthedAppSkillsRoute,
+  AuthedAppSpacesRoute: AuthedAppSpacesRouteWithChildren,
   AuthedAppStartRoute: AuthedAppStartRoute,
   AuthedAppTasksRoute: AuthedAppTasksRouteWithChildren,
   AuthedAppTeamBotsRoute: AuthedAppTeamBotsRoute,
+  AuthedAppWalletRoute: AuthedAppWalletRoute,
   AuthedAppIndexRoute: AuthedAppIndexRoute,
   AuthedAppChannelChannelIdRoute: AuthedAppChannelChannelIdRoute,
   AuthedAppChannelNewRoute: AuthedAppChannelNewRoute,

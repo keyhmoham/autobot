@@ -60,7 +60,7 @@ export const Route = createFileRoute("/_authed/_app/channel/$channelId")({
       );
       if (channel.agentIds.length !== 1)
         throw redirect({
-          to: "/group/$channelId",
+          to: "/spaces/channels/$channelId",
           params: { channelId: params.channelId },
           replace: true,
         });

@@ -141,6 +141,18 @@ export default function Home() {
           <Link href="/bots" style={{ fontSize: 18, color: "#2563eb" }}>
             Bots, routines and computers
           </Link>
+          <Link href="/spaces" style={{ fontSize: 18, color: "#2563eb" }}>
+            Spaces
+          </Link>
+          <Link href="/directs" style={{ fontSize: 18, color: "#2563eb" }}>
+            Messages
+          </Link>
+          <Link href="/feed" style={{ fontSize: 18, color: "#2563eb" }}>
+            Feed
+          </Link>
+          <Link href="/wallet" style={{ fontSize: 18, color: "#2563eb" }}>
+            Wallet
+          </Link>
           <Link href="/memory" style={{ fontSize: 18, color: "#2563eb" }}>
             Memory
           </Link>

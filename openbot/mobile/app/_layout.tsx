@@ -46,6 +46,15 @@ export default function Layout() {
       <Stack.Screen name="memory" options={{ title: "Memory" }} />
       <Stack.Screen name="rules" options={{ title: "Custom rules" }} />
       <Stack.Screen name="plugins" options={{ title: "Plugins" }} />
+      <Stack.Screen name="spaces" options={{ title: "Spaces" }} />
+      <Stack.Screen name="space" options={{ title: "Space" }} />
+      <Stack.Screen name="room" options={{ title: "Room" }} />
+      <Stack.Screen name="channel" options={{ title: "Channel" }} />
+      <Stack.Screen name="directs" options={{ title: "Messages" }} />
+      <Stack.Screen name="feed" options={{ title: "Feed" }} />
+      <Stack.Screen name="post" options={{ title: "Post" }} />
+      <Stack.Screen name="wallet" options={{ title: "Wallet" }} />
+      <Stack.Screen name="apps" options={{ title: "Apps" }} />
     </Stack>
   );
 }

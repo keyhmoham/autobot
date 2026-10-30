@@ -44,6 +44,7 @@ const PLACES: readonly {
   to: LinkOptions["to"];
   adminOnly?: boolean;
 }[] = [
+  { label: "Profile", icon: "mail", to: "/settings/profile" },
   { label: "Bots", icon: "bolt", to: "/bots" },
   { label: "Connections", icon: "plug", to: "/connections" },
   { label: "Capabilities", icon: "box", to: "/capabilities" },
@@ -51,6 +52,7 @@ const PLACES: readonly {
   { label: "Approval rules", icon: "shieldCheck", to: "/settings/approvals" },
   { label: "Notifications", icon: "bell", to: "/settings/notifications" },
   { label: "Passwords", icon: "key", to: "/settings/passwords" },
+  { label: "Access tokens", icon: "key", to: "/settings/access-tokens" },
   { label: "Admin", icon: "shieldLock", to: "/admin", adminOnly: true },
 ];
 

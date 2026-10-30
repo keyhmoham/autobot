@@ -107,8 +107,16 @@ const pending = (id: string) => ({
   },
 });
 
-test("the paths of the three tabs, and no tab for the pages the menu opens", () => {
+test("the paths of the five tabs, and no tab for the pages the menu opens", () => {
   expect(tabForPath("/")).toBe("chat");
+  expect(tabForPath("/spaces")).toBe("spaces");
+  // A space, room, shared conversation or feed detail is a page (page chrome), not the tab.
+  expect(tabForPath("/spaces/s1")).toBeNull();
+  expect(tabForPath("/spaces/channels/c1")).toBeNull();
+  expect(tabForPath("/feed")).toBe("feed");
+  expect(tabForPath("/feed/explore")).toBeNull();
+  expect(tabForPath("/directs")).toBeNull();
+  expect(tabForPath("/wallet")).toBeNull();
   expect(tabForPath("/tasks")).toBe("tasks");
   expect(tabForPath("/tasks/")).toBe("tasks");
   expect(tabForPath("/make")).toBe("make");
@@ -131,7 +139,7 @@ test("the paths of the three tabs, and no tab for the pages the menu opens", () 
   expect(tabForPath("/channels/abc/more")).toBeNull();
 });
 
-test("the tab bar draws Chat, Tasks and Make, the current one marked", async () => {
+test("the tab bar draws Chat, Spaces, Feed, Tasks and Make, the current one marked", async () => {
   inbox = { requests: [], questions: [] };
   serving();
   const view = draw(<TabBar current="tasks" />, undefined, "/tasks");
@@ -139,16 +147,20 @@ test("the tab bar draws Chat, Tasks and Make, the current one marked", async () 
   const links = within(nav).getAllByRole("link");
   expect(links.map((link) => link.textContent)).toEqual([
     "Chat",
+    "Spaces",
+    "Feed",
     "Tasks",
     "Make",
   ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
     "/",
+    "/spaces",
+    "/feed",
     "/tasks",
     "/make",
   ]);
   // Make's glyph is the spark, not Pages' sheet of paper.
-  expect(links[2]?.querySelector("svg path")?.getAttribute("d")).toMatch(
+  expect(links[4]?.querySelector("svg path")?.getAttribute("d")).toMatch(
     /^M10\.6 3\.6/,
   );
   expect(within(nav).getByRole("link", { current: "page" }).textContent).toBe(
@@ -817,6 +829,8 @@ const MANAGE = [
   ["Capabilities", "/capabilities"],
   ["Routines", "/routines"],
   ["Approval rules", "/settings/approvals"],
+  ["Wallet", "/wallet"],
+  ["Access tokens", "/settings/access-tokens"],
   ["Admin", "/admin"],
 ];
 

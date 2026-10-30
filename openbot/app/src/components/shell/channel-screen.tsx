@@ -49,7 +49,13 @@ export function ChannelScreen({ channelId }: { channelId: string }) {
   if (list.data?.everythingId === channelId) return <Navigate replace to="/" />;
   const [runtimeAgentId, ...others] = conversation.data.agentIds;
   if (!runtimeAgentId || others.length > 0)
-    return <Navigate params={{ channelId }} replace to="/group/$channelId" />;
+    return (
+      <Navigate
+        params={{ channelId }}
+        replace
+        to="/spaces/channels/$channelId"
+      />
+    );
   if (!record)
     return <ScreenNotice alert>Couldn't find this channel.</ScreenNotice>;
   return (
