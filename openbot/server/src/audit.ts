@@ -1,3 +1,4 @@
+import type { AuditInitiator } from "@openbot/toolkit/initiator";
 import {
   and,
   desc,
@@ -13,7 +14,6 @@ import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Database } from "./db/client";
 import { auditEvents } from "./db/schema";
 import { parsePageLimit } from "./paging";
-import type { AuditInitiator } from "@openbot/toolkit/initiator";
 
 const sensitiveKeys = new Set([
   "access_token",
@@ -594,6 +594,32 @@ export const auditEventTypes = [
   "routine.enabled_changed",
   /* A run refused because its model is not on the team model allowlist. */
   "model.refused",
+  /*
+   * Spaces, rooms and the people in them (workspace/service.ts). Who was let into what, by whom, and
+   * who took them out: the questions an owner asks after somebody has left. `targetId` is the space;
+   * the payload names the room, channel or person.
+   */
+  "space.created",
+  "space.updated",
+  "space.deleted",
+  "space.member_added",
+  "space.member_role_changed",
+  "space.member_removed",
+  "space.agent_added",
+  "space.agent_removed",
+  "space.invitation_sent",
+  "space.invitation_accepted",
+  "space.invitation_revoked",
+  "room.created",
+  "room.updated",
+  "room.deleted",
+  "room.member_added",
+  "room.member_removed",
+  "channel.created",
+  "channel.updated",
+  "app.installed",
+  "app.updated",
+  "app.removed",
 ] as const;
 
 export type AuditEventType = (typeof auditEventTypes)[number];

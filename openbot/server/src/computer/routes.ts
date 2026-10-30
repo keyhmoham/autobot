@@ -1,6 +1,6 @@
+import { downloadHeaders } from "@openbot/shared/file-download";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { downloadHeaders } from "@openbot/shared/file-download";
 import type { BotAccessCheck } from "../agents/profile-policy";
 import type { AuditReader } from "../audit";
 import type { AppVariables } from "../auth/guards";
@@ -14,7 +14,9 @@ import {
   ElementNotFoundError,
   HandoffRequestError,
   HumanHasControlError,
+  isSpaceComputer,
   NavigationRefusedError,
+  ownComputer,
   StaleSnapshotError,
   WorkspaceNotFoundError,
   WorkspaceRefusedError,
@@ -36,6 +38,32 @@ import { type PolicyStore, parseActionPolicy } from "./policy-store";
  * this file passes through a policy decision and audit row before it reaches the computer.
  */
 
+/** What a person may do with a space's computer, each a role decides (workspace/service.ts). */
+export type SpaceComputerAccess = (
+  userId: string,
+  spaceId: string,
+  need: "view" | "drive" | "manage",
+) => Promise<boolean>;
+
+/**
+ * Which of the person-facing routes a space computer serves, and what each needs. Null for the
+ * routes it does not serve.
+ */
+export function spaceComputerNeed(
+  rest: string,
+): "view" | "drive" | "manage" | null {
+  if (/^\/(status|screenshot|control|files\/(list|read|download))$/.test(rest))
+    return "view";
+  if (
+    /^\/(control\/(take|release|cancel)|human\/(click|type|key|scroll|secret))$/.test(
+      rest,
+    )
+  )
+    return "drive";
+  if (/^\/computers\/(stop|reset|update)$/.test(rest)) return "manage";
+  return null;
+}
+
 export function createComputerRoutes(
   gateway: ComputerGateway,
   policyStore: PolicyStore,
@@ -53,6 +81,11 @@ export function createComputerRoutes(
    * endpoint says it cannot answer rather than answering from nothing.
    */
   auditReader?: AuditReader,
+  /**
+   * Whether the caller may watch, drive or manage a space's computer, decided by their role in the
+   * space. Absent, space computers are not reachable here at all.
+   */
+  canUseSpaceComputer?: SpaceComputerAccess,
 ) {
   const routes = new Hono<{ Variables: AppVariables }>();
 
@@ -87,6 +120,25 @@ export function createComputerRoutes(
       return next();
     }
 
+    /*
+     * A space's computer is the space's, so the space decides, route by route: anybody in it watches,
+     * whoever may use its desks drives by hand, and whoever manages it stops, resets and updates it.
+     * The Bot-acting routes are the personal chat's and are not a space computer's at all: its Bots
+     * act through their turns, governed there, never through a person's browser.
+     */
+    if (botId && isSpaceComputer(botId)) {
+      const need = spaceComputerNeed(
+        path.slice(path.indexOf(botId) + botId.length),
+      );
+      if (
+        !need ||
+        !canUseSpaceComputer ||
+        !(await canUseSpaceComputer(context.var.actor.id, botId, need))
+      )
+        return context.json({ error: "There is no such computer." }, 404);
+      return next();
+    }
+
     if (botId && !(await canUseBot(context.var.actor, botId))) {
       return context.json({ error: "There is no such Bot." }, 404);
     }
@@ -95,12 +147,14 @@ export function createComputerRoutes(
 
   routes.get("/:botId/status", async (context) => {
     const botId = context.req.param("botId");
-    return context.json(await gateway.status(botId));
+    return context.json(await gateway.status(ownComputer(botId)));
   });
 
   routes.get("/:botId/screenshot", async (context) => {
     try {
-      return context.json(await gateway.screenshot(context.req.param("botId")));
+      return context.json(
+        await gateway.screenshot(ownComputer(context.req.param("botId"))),
+      );
     } catch (error) {
       return context.json(errorBody(error), statusFor(error));
     }
@@ -108,7 +162,9 @@ export function createComputerRoutes(
 
   routes.get("/:botId/read", async (context) => {
     try {
-      return context.json(await gateway.read(context.req.param("botId")));
+      return context.json(
+        await gateway.read(ownComputer(context.req.param("botId"))),
+      );
     } catch (error) {
       return context.json(errorBody(error), statusFor(error));
     }
@@ -201,14 +257,14 @@ export function createComputerRoutes(
        * suspended computer, so a convenience picture could wake a machine the culler had just put to
        * sleep and hold a navigation open for the length of a pod schedule while it did.
        */
-      const status = await gateway.status(botId);
+      const status = await gateway.status(ownComputer(botId));
       if (status.state !== "ready") {
         console.warn(
           `[computer] not keeping a frame for ${toolCallId}: the computer is ${status.state}, and photographing it would wake it.`,
         );
         return;
       }
-      const shot = await gateway.screenshot(botId);
+      const shot = await gateway.screenshot(ownComputer(botId));
       const verdict = frameIsOfThisPage(shot.url, url);
       if (!verdict.ok) {
         console.warn(
@@ -249,7 +305,7 @@ export function createComputerRoutes(
     try {
       const botId = context.req.param("botId") ?? "default";
       const result = await gateway.navigate(
-        botId,
+        ownComputer(botId),
         {
           id: context.var.actor.id,
           ...(context.var.actor.email === DEV_ACTOR_EMAIL
@@ -277,7 +333,9 @@ export function createComputerRoutes(
 
   routes.post("/:botId/snapshot", async (context) => {
     try {
-      return context.json(await gateway.snapshot(context.req.param("botId")));
+      return context.json(
+        await gateway.snapshot(ownComputer(context.req.param("botId"))),
+      );
     } catch (error) {
       return context.json(errorBody(error), statusFor(error));
     }
@@ -293,7 +351,7 @@ export function createComputerRoutes(
     act(context, (botId, actor, body, signal) => {
       const ref = asRef(body);
       if (!ref) return badRef;
-      return gateway.click(botId, actor, ref, signal);
+      return gateway.click(ownComputer(botId), actor, ref, signal);
     }),
   );
 
@@ -305,7 +363,7 @@ export function createComputerRoutes(
         return { error: "The text to enter is required." };
       }
       return gateway.type(
-        botId,
+        ownComputer(botId),
         actor,
         {
           ...ref,
@@ -324,7 +382,7 @@ export function createComputerRoutes(
       }
       const ref = asRef(body);
       return gateway.key(
-        botId,
+        ownComputer(botId),
         actor,
         {
           key: body.key,
@@ -338,7 +396,7 @@ export function createComputerRoutes(
   routes.post("/:botId/scroll", (context) =>
     act(context, (botId, actor, body) => {
       if (!usableDeltaY(body?.deltaY)) return badDeltaY;
-      return gateway.scroll(botId, actor, {
+      return gateway.scroll(ownComputer(botId), actor, {
         ...(typeof body?.deltaY === "number" ? { deltaY: body.deltaY } : {}),
       });
     }),
@@ -352,7 +410,7 @@ export function createComputerRoutes(
     try {
       return context.json(
         await gateway.control(
-          context.req.param("botId"),
+          ownComputer(context.req.param("botId")),
           context.req.query("requestId"),
         ),
       );
@@ -364,7 +422,7 @@ export function createComputerRoutes(
   routes.post("/:botId/control/request", (context) =>
     act(context, (botId, actor, body) =>
       gateway.requestHelp(
-        botId,
+        ownComputer(botId),
         actor,
         typeof body?.reason === "string" && body.reason.trim()
           ? body.reason.trim()
@@ -417,12 +475,16 @@ export function createComputerRoutes(
 
   /** Stop the browser, keep the logins. */
   routes.post("/:botId/computers/stop", (context) =>
-    act(context, (botId, actor) => gateway.stopComputer(botId, actor)),
+    act(context, (botId, actor) =>
+      gateway.stopComputer(ownComputer(botId), actor),
+    ),
   );
 
   /** Delete the profile. Every login goes with it, which is the point and also the danger. */
   routes.post("/:botId/computers/reset", (context) =>
-    act(context, (botId, actor) => gateway.resetComputer(botId, actor)),
+    act(context, (botId, actor) =>
+      gateway.resetComputer(ownComputer(botId), actor),
+    ),
   );
 
   /**
@@ -430,24 +492,26 @@ export function createComputerRoutes(
    * computer restarts, so this is a person's button and never something a wake does to a busy one.
    */
   routes.post("/:botId/computers/update", (context) =>
-    act(context, (botId, actor) => gateway.updateComputer(botId, actor)),
+    act(context, (botId, actor) =>
+      gateway.updateComputer(ownComputer(botId), actor),
+    ),
   );
 
   routes.post("/:botId/control/take", (context) =>
     act(context, (botId, actor, body) =>
-      gateway.takeControl(botId, actor, handoffId(body)),
+      gateway.takeControl(ownComputer(botId), actor, handoffId(body)),
     ),
   );
 
   routes.post("/:botId/control/release", (context) =>
     act(context, (botId, actor, body) =>
-      gateway.releaseControl(botId, actor, handoffId(body)),
+      gateway.releaseControl(ownComputer(botId), actor, handoffId(body)),
     ),
   );
 
   routes.post("/:botId/control/cancel", (context) =>
     act(context, (botId, actor, body) =>
-      gateway.cancelControl(botId, actor, handoffId(body)),
+      gateway.cancelControl(ownComputer(botId), actor, handoffId(body)),
     ),
   );
 
@@ -466,7 +530,7 @@ export function createComputerRoutes(
       ) {
         return { error: "The snapshotId the ref came from is required." };
       }
-      return gateway.requestSecret(botId, actor, {
+      return gateway.requestSecret(ownComputer(botId), actor, {
         label:
           typeof body?.label === "string" && body.label.trim()
             ? body.label.trim()
@@ -489,7 +553,7 @@ export function createComputerRoutes(
       if (typeof body?.text !== "string" || !body.text) {
         return { error: "A value is required." };
       }
-      return gateway.supplySecret(botId, actor, body.text);
+      return gateway.supplySecret(ownComputer(botId), actor, body.text);
     }),
   );
 
@@ -554,7 +618,7 @@ export function createComputerRoutes(
     }
     try {
       return context.json(
-        await gateway.humanInput(context.req.param("botId"), {
+        await gateway.humanInput(ownComputer(context.req.param("botId")), {
           ...(body ?? {}),
           // Last, so the checked value wins. Spread over it, a body carrying its own `kind` replaced
           // the one this route had just checked, and the gateway puts that value into the path it
@@ -594,7 +658,7 @@ export function createComputerRoutes(
 
   routes.post("/:botId/files/list", (context) =>
     act(context, (botId, actor, body) =>
-      gateway.listFiles(botId, actor, {
+      gateway.listFiles(ownComputer(botId), actor, {
         ...(typeof body?.path === "string" && body.path.trim()
           ? { path: body.path.trim() }
           : {}),
@@ -607,7 +671,9 @@ export function createComputerRoutes(
       if (typeof body?.path !== "string" || !body.path.trim()) {
         return { error: "A file path is required." };
       }
-      return gateway.readFile(botId, actor, { path: body.path.trim() });
+      return gateway.readFile(ownComputer(botId), actor, {
+        path: body.path.trim(),
+      });
     }),
   );
 
@@ -627,7 +693,7 @@ export function createComputerRoutes(
 
     try {
       const file = await gateway.downloadFile(
-        context.req.param("botId"),
+        ownComputer(context.req.param("botId")),
         actorOf(context.var.actor),
         { path: path.trim() },
         context.req.raw.signal,
@@ -670,7 +736,7 @@ export function createComputerRoutes(
       // gateway.runCommand and into the shell's own abort listener was dead code, and Stop ended the
       // run in the transcript while the command carried on to completion inside the container.
       return gateway.runCommand(
-        botId,
+        ownComputer(botId),
         actor,
         {
           command: body.command,
@@ -691,7 +757,7 @@ export function createComputerRoutes(
       if (typeof body?.contents !== "string") {
         return { error: "The contents to write are required." };
       }
-      return gateway.writeFile(botId, actor, {
+      return gateway.writeFile(ownComputer(botId), actor, {
         path: body.path.trim(),
         contents: body.contents,
         append: body.append === true,

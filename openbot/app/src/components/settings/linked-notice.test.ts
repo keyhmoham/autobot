@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { linkedNotice, visibleLinkedNotice } from "./linked-notice";
 import { appConfig } from "@/lib/generated/application-config";
+import { linkedNotice, visibleLinkedNotice } from "./linked-notice";
 
 describe("linkedNotice", () => {
   test("reports a linked GitHub account", () => {

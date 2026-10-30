@@ -6,7 +6,7 @@ const targetTest =
   new URL("./tool-selection.integration.test.ts", import.meta.url).pathname;
 const modelModulePath =
   process.env.SRA009_MODEL_MODULE_PATH ??
-  new URL("../src/routing/model.ts", import.meta.url).pathname;
+  new URL("./support/models.ts", import.meta.url).pathname;
 const syntheticKey = "sra009-synthetic-before-key";
 
 declare global {
@@ -22,18 +22,18 @@ declare global {
 }
 
 type ModelModule = {
-  createModelCompleter: (deps: {
-    model: { provider: string; defaultModel: string };
-    resolveApiKey: () => Promise<string | null>;
-  }) => (prompt: string) => Promise<string>;
+  completerFromEnvironment: (
+    model: { provider: "openai" | "anthropic"; defaultModel: string },
+    apiKey?: string,
+  ) => (prompt: string) => Promise<string>;
 };
 
 function hasModelCompleter(module: unknown): module is ModelModule {
   return (
     typeof module === "object" &&
     module !== null &&
-    "createModelCompleter" in module &&
-    typeof module.createModelCompleter === "function"
+    "completerFromEnvironment" in module &&
+    typeof module.completerFromEnvironment === "function"
   );
 }
 
@@ -93,10 +93,10 @@ async function emitRestorationProof(modelModule: ModelModule) {
       let modelText = "";
       let modelStatus = "not-called";
       try {
-        modelText = await modelModule.createModelCompleter({
-          model: { provider: "openai", defaultModel: "gpt-5.5" },
-          resolveApiKey: async () => syntheticKey,
-        })("answer with JSON");
+        modelText = await modelModule.completerFromEnvironment(
+          { provider: "openai", defaultModel: "gpt-5.5" },
+          syntheticKey,
+        )("answer with JSON");
         modelStatus = "resolved";
       } catch {
         modelStatus = "rejected";
@@ -221,7 +221,7 @@ if (mode !== undefined) {
   const modelModule: unknown = await import(modelModulePath);
   if (!hasModelCompleter(modelModule)) {
     throw new Error(
-      "SRA009_MODEL_MODULE_PATH did not export createModelCompleter",
+      "SRA009_MODEL_MODULE_PATH did not export completerFromEnvironment",
     );
   }
 
@@ -258,7 +258,7 @@ afterAll(async () => {
       const modelModule: unknown = await import(modelModulePath);
       if (!hasModelCompleter(modelModule)) {
         throw new Error(
-          "SRA009_MODEL_MODULE_PATH did not export createModelCompleter",
+          "SRA009_MODEL_MODULE_PATH did not export completerFromEnvironment",
         );
       }
       if (!proofEmitted) {

@@ -178,7 +178,7 @@ export function createEnterpriseAdminRoutes(
       network,
       defaultDestinations: DEFAULT_EGRESS_DESTINATIONS,
       mcpServers: servers,
-      builtInModel: controls.deps.builtInModel ?? null,
+      builtInModel: (await controls.deps.builtInModel?.()) ?? null,
       scim: scimStatus(controls.deps.env ?? process.env),
       otel: { configured: otelConfigured(controls.deps.env ?? process.env) },
       actionRecordRetentionDays: ACTION_RECORD_RETENTION_DAYS,

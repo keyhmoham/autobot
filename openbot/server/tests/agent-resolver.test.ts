@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import type { AuditInitiator } from "../src/audit";
+import { modelsFromEnvironment } from "./support/models";
 
 describe("actor-scoped agent resolver", () => {
   test("builds only the addressed coworker and carries the headless initiator and depth", async () => {
@@ -20,7 +21,11 @@ describe("actor-scoped agent resolver", () => {
         }));
       },
       model: { provider: "openai", defaultModel: "unused" },
-      resolveModelApiKey: async () => "synthetic-key",
+      modelsForActor: () =>
+        modelsFromEnvironment(
+          { provider: "openai", defaultModel: "unused" },
+          "synthetic-key",
+        ),
       loadToolsForActor: (id, cause) => {
         contexts.push(["tools", id, cause]);
         return async (botId) => {
@@ -58,7 +63,7 @@ describe("actor-scoped agent resolver", () => {
         { id: "risk", name: "Risk", type: "built_in", systemPrompt: "Work." },
       ],
       model: { provider: "openai", defaultModel: "unused" },
-      resolveModelApiKey: async () => {
+      modelsForActor: () => async () => {
         throw failure;
       },
     });
@@ -82,7 +87,11 @@ describe("actor-scoped agent resolver", () => {
         ];
       },
       model: { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      resolveModelApiKey: async () => "openai-secret",
+      modelsForActor: () =>
+        modelsFromEnvironment(
+          { provider: "openai", defaultModel: "unused" },
+          "openai-secret",
+        ),
     });
     const actor = { id: "u1", role: "user" as const };
 
@@ -105,7 +114,11 @@ describe("actor-scoped agent resolver", () => {
         },
       ],
       model: { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      resolveModelApiKey: async () => "openai-secret",
+      modelsForActor: () =>
+        modelsFromEnvironment(
+          { provider: "openai", defaultModel: "unused" },
+          "openai-secret",
+        ),
     });
 
     let rejection: unknown;
@@ -128,7 +141,11 @@ describe("actor-scoped agent resolver", () => {
     const resolver = createActorAgentResolver({
       loadAgents: async () => [],
       model: { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      resolveModelApiKey: async () => "openai-secret",
+      modelsForActor: () =>
+        modelsFromEnvironment(
+          { provider: "openai", defaultModel: "unused" },
+          "openai-secret",
+        ),
     });
 
     expect(
@@ -152,7 +169,11 @@ describe("actor-scoped agent resolver", () => {
         },
       ],
       model: { provider: "openai", defaultModel: "gpt-5.6-terra" },
-      resolveModelApiKey: async () => "openai-secret",
+      modelsForActor: () =>
+        modelsFromEnvironment(
+          { provider: "openai", defaultModel: "unused" },
+          "openai-secret",
+        ),
     });
 
     for (const agentId of ["constructor", "toString", "__proto__"]) {

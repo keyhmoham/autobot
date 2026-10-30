@@ -180,6 +180,7 @@ function serve(listen: ReturnType<typeof loadConfig>["listen"], port: number) {
     },
     agentProfileStore: {} as never,
     computerGateway: undefined,
+    spaceComputerAccess: async () => false,
     demonstrationStore: {} as never,
     demonstrationRecorder: {} as never,
     app: { fetch: () => Response.json({ role: "admin" }) },

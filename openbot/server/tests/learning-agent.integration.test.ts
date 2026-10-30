@@ -3,11 +3,12 @@ import { LLMock } from "@copilotkit/aimock";
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { buildAgents, type RuntimeModel } from "../src/copilot";
 import {
-  createLearningRuntime,
   type AcquireLearnedSkills,
+  createLearningRuntime,
 } from "../src/learning/runtime";
 import { createLearningSettingsStore } from "../src/learning/settings";
 import { skillSnapshot } from "./fixtures/learned-skills";
+import { modelsFromEnvironment } from "./support/models";
 
 function agents(
   acquire: AcquireLearnedSkills,
@@ -23,7 +24,7 @@ function agents(
       },
     ],
     model,
-    "synthetic-model-key",
+    modelsFromEnvironment(model, "synthetic-model-key"),
     undefined,
     undefined,
     undefined,

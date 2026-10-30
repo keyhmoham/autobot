@@ -1,5 +1,4 @@
 import { IconEyeCheck, IconHandStop, IconTerminal2 } from "@tabler/icons-react";
-import { appConfig } from "@/lib/generated/application-config";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Fragment } from "react";
@@ -18,6 +17,7 @@ import {
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { agentListQueryOptions } from "@/lib/agents/queries";
 import {
   approvalInboxOptions,
   approvalPreferencesMutationOptions,
@@ -26,8 +26,8 @@ import {
   ruleCoversBot,
   updateApprovalRuleMutationOptions,
 } from "@/lib/approvals";
-import { agentListQueryOptions } from "@/lib/agents/queries";
 import { currentUserQueryOptions } from "@/lib/auth/queries";
+import { appConfig } from "@/lib/generated/application-config";
 import { queryClient } from "@/query-client";
 import { HOST_LABELS, LabelSelect, RuleForm, RuleRow } from "./rules";
 

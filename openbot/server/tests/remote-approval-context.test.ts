@@ -1,10 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { HttpAgent, type RunAgentInput } from "@ag-ui/client";
+import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import { of } from "rxjs";
 import { z } from "zod";
 import { currentApprovalContext } from "../src/approvals/types";
 import { buildAgents } from "../src/copilot";
-import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
+import { noModel } from "./support/models";
 
 async function fixture(answered = false) {
   const requests: RunAgentInput[] = [];
@@ -56,7 +57,7 @@ async function fixture(answered = false) {
       },
     ],
     { provider: "openai", defaultModel: "test" },
-    null,
+    noModel,
   ];
   args[4] = async () => [
     {

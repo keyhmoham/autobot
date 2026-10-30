@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { ChannelChat } from "@/components/channels/channel-chat";
+import { useSheetPresence } from "@/hooks/use-sheet-presence";
 import { agentListQueryOptions } from "@/lib/agents/queries";
 import { clockTime } from "@/lib/approval-view";
 import { useMarkOpenChannelRead } from "@/lib/channels/mark-read";
@@ -20,7 +21,6 @@ import {
   taskReportQueryOptions,
 } from "@/lib/tasks/queries";
 import { useConversationBusy } from "@/lib/tasks/use-task";
-import { useSheetPresence } from "@/hooks/use-sheet-presence";
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/query-client";
 import { ChannelTagOf } from "./channel-tag";

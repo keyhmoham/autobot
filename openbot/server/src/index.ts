@@ -1,4 +1,5 @@
 // First, before anything that imports the CopilotKit runtime: see telemetry.ts.
+import type { HeadlessTool } from "@openbot/toolkit/headless-tools";
 import "./telemetry";
 import type { AbstractAgent } from "@ag-ui/client";
 import {
@@ -50,17 +51,25 @@ import {
   wakeUpTools,
 } from "./agents/wake-up";
 import { createApp } from "./app";
+import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovedActionExecutor } from "./approvals/execute";
 import { createPersonResponseTick } from "./approvals/person-response-sweep";
 import {
   type PersonQuestion,
   questionConversationBot,
 } from "./approvals/questions";
-import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { ApprovalRefusedError } from "./approvals/types";
 import { createServerApprovalService } from "./approvals/wiring";
+import { createAppLinks } from "./apps/links";
+import {
+  createAccessTokenRoutes,
+  createAccessTokens,
+} from "./auth/access-tokens";
+import { createAppRoutes, createAppViewRoutes } from "./apps/routes";
+import { createApps } from "./apps/service";
+import { createAppTools } from "./apps/tools";
 import {
   type AuditInitiator,
   auditSink,
@@ -84,14 +93,14 @@ import {
   markAttachmentsSent,
 } from "./channels/attachments";
 import {
+  conversationSourceForRun,
+  createConversationStore,
+  createConversations,
+} from "./channels/conversation";
+import {
   createChannelEventHub,
   startChannelActivityListener,
 } from "./channels/events";
-import {
-  createGroupConversations,
-  createGroupStore,
-  groupSourceForRun,
-} from "./channels/group";
 import {
   type ChannelStore,
   createChannelStore,
@@ -108,8 +117,13 @@ import { createChannelTitler } from "./channels/titler";
 import { headlessComponentCatalog } from "./components/headless";
 import { createSandboxedStore } from "./components/sandboxed";
 import { createComponentStore } from "./components/store";
-import { createComputerGateway } from "./computer/gateway";
+import {
+  createComputerGateway,
+  ownComputer,
+  spaceComputer,
+} from "./computer/gateway";
 import { createHeadlessComputerTools } from "./computer/headless-tools";
+import { computerOwner } from "./computer/owner";
 import { createPageFrameStore } from "./computer/page-frames";
 import { startPolicyListener } from "./computer/policy-listener";
 import { withPolicyPushOnWake } from "./computer/policy-network";
@@ -124,6 +138,7 @@ import {
 import { createSnapshotStore } from "./computer/snapshot-store";
 import { loadConfig } from "./config";
 import {
+  type BotLanguageModel,
   type IdentifyActor,
   type IdentifyUser,
   mountCopilotRuntime,
@@ -138,6 +153,7 @@ import {
 } from "./credentials";
 import { createDatabase } from "./db/client";
 import {
+  agents,
   brokeredConnections,
   channelAgents,
   channelMemberships,
@@ -154,6 +170,9 @@ import type { DeliveryScope } from "./delivery/types";
 import { DeliveryRefusedError } from "./delivery/types";
 import { createDemonstrationRecorder } from "./demonstrations/recording";
 import { createDemonstrationStore } from "./demonstrations/store";
+import { createFederationRoutes, createPeerRoutes } from "./federation/routes";
+import { createFederation } from "./federation/service";
+import { createFederatedTransfers } from "./federation/transfers";
 import {
   createHostAccessBroker,
   HostAccessRefusedError,
@@ -168,6 +187,7 @@ import {
   createIntelligenceClient,
   observeIntelligenceAuthentication,
 } from "./intelligence-client";
+import { reportIntelligenceEntitlement } from "./intelligence-entitlement-check";
 import {
   createLearningAutoAssign,
   probeLearningContainer,
@@ -182,37 +202,64 @@ import {
 } from "./learning/ensure-container";
 import { clearLearningRevisionFallback } from "./learning/runtime";
 import { createLearningSettingsStore } from "./learning/settings";
+import { createLlmAdminRoutes } from "./llm/admin-routes";
+import { seedModelsFromEnvironment } from "./llm/bootstrap";
+import { createModelGateway } from "./llm/gateway";
+import { createGatewayModels, NoModelError } from "./llm/models";
+import { createLlmRegistry } from "./llm/registry";
+import { createGatewayTokens } from "./llm/tokens";
 import { createMemoryDefaults } from "./memory/defaults";
 import { createMemoryIngestion } from "./memory/ingestion";
 import { createIntelligenceMemory } from "./memory/intelligence";
 import { createMemoryStore } from "./memory/store";
-import { reportModelAvailability } from "./model-availability-check";
 import { memoryTools } from "./memory/tools";
-import { appAccessTools } from "./plugins/app-access-tool";
+import { checkChosenModel } from "./model-availability-check";
+import {
+  createChannelHello,
+  createDuetChannelStore,
+} from "./openduet/channels";
+import { createComputerCheck } from "./openduet/computer-check";
+import { createPageStore } from "./openduet/pages";
+import { withRunChannels } from "./openduet/run-channel";
+import {
+  createSetupSources,
+  modelSourceOf,
+  primaryBotIdOf,
+} from "./openduet/setup";
+import { createTaskReplyContext } from "./openduet/task-reply-context";
+import {
+  createTaskReportReader,
+  intelligenceHistory,
+} from "./openduet/task-report";
+import { createTaskStore } from "./openduet/task-store";
+import { createTaskThreads, createTaskTurn } from "./openduet/task-threads";
+import type { TaskStarter } from "./openduet/tasks";
+import { createOpenDuetTools, createTaskIntake } from "./openduet/wiring";
 import { createSignInNotifier, createSignInResumer } from "./passwords/resume";
 import { createSignInService } from "./passwords/service";
 import { createPasswordStore } from "./passwords/store";
 import { createOnboardingStore } from "./people/onboarding";
 import { createPeopleStore } from "./people/store";
-import { createAccountModeSwitch } from "./plugins/account-mode";
-import { assertActivatable, providerDecision } from "./plugins/broker";
 import { BROKERED_PROFILE } from "./plugins/access";
-import { useRoutineTools } from "./plugins/builtin-routines";
+import { createAccountModeSwitch } from "./plugins/account-mode";
+import { appAccessTools } from "./plugins/app-access-tool";
 import { useArcadeClient } from "./plugins/arcade";
 import { createArcadeClient } from "./plugins/arcade-adapter";
+import { assertActivatable, providerDecision } from "./plugins/broker";
+import { useRoutineTools } from "./plugins/builtin-routines";
 import { useComposioClient } from "./plugins/composio";
 import { createComposioClient } from "./plugins/composio-adapter";
 import { backfillBrokeredLogos } from "./plugins/logos";
 import { redirectUriFor } from "./plugins/oauth";
 import {
-  createSharedUseGate,
-  createSharedUseStore,
-} from "./plugins/shared-use-store";
-import {
   arcadeVerifierNotice,
   selectProviderWiring,
   storedProvider,
 } from "./plugins/provider-wiring";
+import {
+  createSharedUseGate,
+  createSharedUseStore,
+} from "./plugins/shared-use-store";
 import { createPluginStore } from "./plugins/store";
 import {
   grantedSkills,
@@ -257,42 +304,34 @@ import { createServerResponsibilityEngine } from "./responsibilities/wiring";
 import { createRoutineRunner } from "./routines/runner";
 import { createRoutineStore } from "./routines/store";
 import { createIntentRouter } from "./routing/classify";
-import { createModelCompleter } from "./routing/model";
-import {
-  createChannelHello,
-  createDuetChannelStore,
-} from "./openduet/channels";
-import { createComputerCheck } from "./openduet/computer-check";
-import { createPageStore } from "./openduet/pages";
-import { withRunChannels } from "./openduet/run-channel";
-import {
-  createSetupSources,
-  modelKeyOf,
-  primaryBotIdOf,
-} from "./openduet/setup";
-import {
-  createTaskReportReader,
-  intelligenceHistory,
-} from "./openduet/task-report";
-import { createTaskStore } from "./openduet/task-store";
-import { createTaskReplyContext } from "./openduet/task-reply-context";
-import { createTaskThreads, createTaskTurn } from "./openduet/task-threads";
-import type { TaskStarter } from "./openduet/tasks";
-import { createOpenDuetTools, createTaskIntake } from "./openduet/wiring";
-import { reportIntelligenceEntitlement } from "./intelligence-entitlement-check";
 import { createSelfHostBanner } from "./self-host-banner";
+import { createSocialRoutes } from "./social/routes";
+import { createSocial } from "./social/service";
 import { createTeamBots } from "./team-bots/team-bots";
 import {
   createPackageStatusReader,
   loadTenantPackage,
   synchronizeTenantPackage,
 } from "./tenant-package";
+import { createTimelineFeeds } from "./timeline/feeds";
+import { createTimelineRoutes } from "./timeline/routes";
+import { createTimeline } from "./timeline/service";
+import { createTimelineTools } from "./timeline/tools";
 import { createUserInstructionsStore } from "./user-instructions";
 import { createUserPreferencesStore } from "./user-preferences";
 import { createVoiceSessionStore } from "./voice/sessions";
 import { createVoiceSummarizer } from "./voice/summary";
+import { createComputerMeter } from "./wallet/meter";
+import { createWalletRoutes } from "./wallet/routes";
+import { createWallets } from "./wallet/service";
 import { repeatAfterEach } from "./work/loop";
 import { createWorkQueue, type WorkOfferedListener } from "./work/queue";
+import { createDesks } from "./workspace/desk";
+import { createDeskTools } from "./workspace/desk-tools";
+import { WorkspaceNotFoundError } from "./workspace/errors";
+import { createInvitations } from "./workspace/invitations";
+import { createWorkspaceRoutes } from "./workspace/routes";
+import { createWorkspace } from "./workspace/service";
 
 /**
  * Who is asking, for a CopilotKit request.
@@ -674,11 +713,11 @@ const channelSourceForRun = async (run: RunAssertion) => {
 };
 
 /*
- * A run's source conversation: a channel's own thread, or a Bot's thread in a group conversation.
- * The group lookup applies the same live-membership and own-Bot checks. See channels/group.ts.
+ * A run's source conversation: a channel's own thread, or a Bot's thread in a shared channel. The
+ * shared lookup applies the same live-membership and own-Bot checks. See channels/conversation.ts.
  */
 const sourceForCoordinationRun = async (run: RunAssertion) =>
-  (await channelSourceForRun(run)) ?? groupSourceForRun(database, run);
+  (await channelSourceForRun(run)) ?? conversationSourceForRun(database, run);
 
 const authoriseQuestion = async (question: PersonQuestion) => {
   const source = await sourceForCoordinationRun({
@@ -705,23 +744,138 @@ const storedApprovals = createApprovalStore(database);
 normalizeModelBaseUrls();
 const runtimeModel = runtimeModelForEnvironment(tenantPackage.model);
 
-/**
- * Pass one of tool selection: which skills a message needs, on the deployment's own model.
- *
- * Built once rather than per request, because it holds nothing about a person: the key is resolved
- * on every call, so a credential rotated a moment ago is used by the next run.
+/*
+ * The model gateway: the one way anything in this deployment reaches a model. Providers, models,
+ * prices and roles are an administrator's (Admin → Models); keys live in the vault; every call is
+ * metered against whose run it is. See llm/gateway.ts.
  */
-const chooseSkills = createModelCompleter({
-  model: runtimeModel,
-  resolveApiKey: () =>
+const llmRegistry = createLlmRegistry({
+  database,
+  encryptionKey: config.keyEncryptionKey,
+});
+const gatewayTokens = createGatewayTokens({
+  encryptionKey: config.keyEncryptionKey,
+  ...(process.env.LLM_GATEWAY_KEY?.trim()
+    ? { deploymentKey: process.env.LLM_GATEWAY_KEY.trim() }
+    : {}),
+});
+// How the CLI and a person's scripts act as them: see auth/access-tokens.ts.
+const accessTokens = createAccessTokens({ database });
+
+// Every space's timeline, filled from what the deployment already records: see timeline/feeds.ts.
+const timeline = createTimeline({ database });
+createTimelineFeeds({ database, timeline }).start();
+
+// Every credit that moves, moves here: see wallet/service.ts.
+const wallets = createWallets({ database });
+
+/*
+ * This deployment as a node of a federation: see federation/service.ts. Every node has an identity
+ * from its first start; FEDERATION_CENTRAL makes this one the centre others join, and
+ * FEDERATION_CENTRAL_URL with FEDERATION_JOIN_CODE joins one at start-up rather than from Admin →
+ * Federation, for a deployment brought up by a script.
+ */
+const federation = await createFederation({
+  database,
+  encryptionKey: config.keyEncryptionKey,
+  publicUrl: config.publicUrl,
+  name:
+    process.env.FEDERATION_NODE_NAME?.trim() ||
+    (config.publicUrl ? new URL(config.publicUrl).host : "OpenDuet"),
+  central: process.env.FEDERATION_CENTRAL === "true",
+});
+const federatedTransfers = createFederatedTransfers({
+  database,
+  federation,
+  wallets,
+});
+{
+  const centralUrl = process.env.FEDERATION_CENTRAL_URL?.trim();
+  const code = process.env.FEDERATION_JOIN_CODE?.trim();
+  if (centralUrl && code && !federation.self().id)
+    await federation.join({ centralUrl, code }).catch((error) =>
+      console.warn(
+        JSON.stringify({
+          type: "federation-join-failed",
+          error: String(error),
+        }),
+      ),
+    );
+  let busy = false;
+  setInterval(() => {
+    if (busy || !federation.self().id) return;
+    busy = true;
+    void Promise.allSettled([
+      federation.heartbeat(),
+      federation.pushLedger(),
+      federatedTransfers.retry(),
+    ]).finally(() => {
+      busy = false;
+    });
+  }, 60_000);
+}
+const modelGateway = createModelGateway({
+  database,
+  registry: llmRegistry,
+  tokens: gatewayTokens,
+  hooks: {
+    // The deployment's own calls (no payer) still count against a space's budget when they name one.
+    admit: (caller) =>
+      wallets.admit({
+        payerUserId: caller.payerUserId,
+        spaceId: caller.spaceId,
+      }),
+    charge: (usage) =>
+      wallets.charge({
+        payerUserId: usage.caller.payerUserId,
+        amount: usage.cost,
+        category: "llm",
+        description: `${usage.model.name}: ${usage.inputTokens} tokens in, ${usage.outputTokens} out`,
+        spaceId: usage.caller.spaceId,
+        agentId: usage.caller.agentId,
+        reference: usage.usageId,
+      }),
+  },
+});
+const gatewayModels = createGatewayModels({
+  gateway: modelGateway,
+  registry: llmRegistry,
+  tokens: gatewayTokens,
+});
+// A deployment that ran on one key before the gateway keeps running on it: see llm/bootstrap.ts.
+await seedModelsFromEnvironment({
+  registry: llmRegistry,
+  packageModel: tenantPackage.model,
+  resolveKey: (provider) =>
     resolveModelApiKey({
       encryptionKey: config.keyEncryptionKey,
       reader: credentialStore,
-      provider: runtimeModel.provider,
+      provider,
       keyId: tenantPackage.model.credentialSecretRef,
       environment: process.env,
     }),
-});
+  environment: process.env,
+}).catch((error: unknown) =>
+  console.error(
+    JSON.stringify({
+      type: "model-seed-failed",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  ),
+);
+
+/**
+ * The deployment's own short decisions, on the decision role's model (the chat model when none is
+ * chosen): pass one of tool selection, routing a message, titling a conversation.
+ */
+const decide = (prompt: string, signal?: AbortSignal) =>
+  gatewayModels.complete({
+    role: "decision",
+    prompt,
+    json: true,
+    ...(signal ? { signal } : {}),
+  });
+const chooseSkills = decide;
 
 /*
  * The pair a headless turn is driven through, built ONCE.
@@ -745,25 +899,65 @@ const routineIntelligence = observeIntelligenceAuthentication(
     apiKey: config.runtime.intelligence.apiKey,
   }),
 );
-const approvalComputerTools = async (
+/**
+ * Where a turn runs, from the thread it runs in: a shared channel's thread names its channel, and so
+ * its room and space. Null for every other thread, a person's own conversation with a Bot.
+ */
+const placeOfThread = async (threadId: string | undefined) => {
+  if (!threadId) return null;
+  const thread = await conversations.store.threadRow(threadId);
+  const place = thread ? await workspace.spaceOf(thread.channelId) : null;
+  return thread && place ? { channelId: thread.channelId, ...place } : null;
+};
+
+/**
+ * The computer and desk tools a server-run turn holds, decided by where it runs.
+ *
+ * In a space's channel the Bot works on the space's computer, the one every room and channel of the
+ * space shares, and holds the room's desk. Anywhere else it works on its own computer, as before. A
+ * Team Bot's teammate uses the Bot, not its owner's signed-in computer, in either place.
+ */
+const turnComputerTools = async (
   ownerUserId: string,
   agentId: string,
   initiator: AuditInitiator,
-) => {
+  threadId?: string,
+): Promise<HeadlessTool[]> => {
   const actor = await actorFor(ownerUserId);
   const profile = await agentProfileStore.get(actor, agentId);
   if (!profile)
     throw new ApprovalRefusedError("That Bot is no longer available to you.");
-  // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-  return computerGateway && canUseComputer(profile, actor)
-    ? createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      })
+  const place = await placeOfThread(threadId);
+  const deskTools = place
+    ? [
+        ...createDeskTools(desks, {
+          ...place,
+          agentId,
+          actingFor: ownerUserId,
+        }),
+        ...createTimelineTools(timeline, place),
+        ...(computerGateway
+          ? createAppTools(
+              apps,
+              { ...place, agentId, actingFor: ownerUserId },
+              initiator,
+            )
+          : []),
+      ]
     : [];
+  if (!computerGateway || !canUseComputer(profile, actor)) return deskTools;
+  return [
+    ...deskTools,
+    ...createHeadlessComputerTools({
+      gateway: computerGateway,
+      computer: place
+        ? spaceComputer(place.spaceId, agentId)
+        : ownComputer(agentId),
+      actor: { id: actor.id, userId: actor.id, initiator },
+      auditStore: bootAuditStore,
+      ...(signInService ? { signIn: signInService } : {}),
+    }),
+  ];
 };
 
 const approvalService = createServerApprovalService({
@@ -775,7 +969,7 @@ const approvalService = createServerApprovalService({
   database,
   authoriseQuestion,
   routineIntelligence,
-  approvalComputerTools,
+  approvalComputerTools: turnComputerTools,
   review: (prompt, signal) => chooseSkills(prompt, signal),
   // Assigned further down, once delivery is wired.
   notify: (scope, input) => deliveryNotifications(scope, input),
@@ -803,6 +997,25 @@ const computerGateway = computerProvider
       token: config.computer?.token,
     })
   : undefined;
+
+// Running computers cost their owners by the minute, and stop when nobody can pay: see wallet/meter.ts.
+if (computerGateway) {
+  const gateway = computerGateway;
+  createComputerMeter({
+    wallets,
+    computers: async () => (await gateway.computers()).computers,
+    ownerOf: (computerId) => computerOwner(database, computerId),
+    stop: async (computerId, reason) => {
+      await gateway.stopComputer(
+        { botId: computerId, computerId },
+        { id: "billing", initiator: DEPLOYMENT_INITIATOR },
+      );
+      console.warn(
+        JSON.stringify({ type: "computer-stopped-unpaid", computerId, reason }),
+      );
+    },
+  }).start();
+}
 
 /**
  * What a Bot can reach beyond its own computer.
@@ -1238,60 +1451,73 @@ const stallGuard = createStallGuard({
   auditStore: bootAuditStore,
 });
 
-const intentRouter = createIntentRouter({
-  complete: createModelCompleter({
-    model: runtimeModel,
-    resolveApiKey: () =>
-      resolveModelApiKey({
-        encryptionKey: config.keyEncryptionKey,
-        reader: credentialStore,
-        provider: runtimeModel.provider,
-        keyId: tenantPackage.model.credentialSecretRef,
-        environment: process.env,
-      }),
-  }),
-});
+const intentRouter = createIntentRouter({ complete: decide });
 
-// Said once at boot: whether the key can call the model the Bots run on. A key without access to it
-// otherwise passes every start-up check and fails at the first message, in front of whoever sent it.
-// Kept, with a stamp naming the key it asked about, so the setup checklist can repeat the answer
-// for that key and say "not checked yet" for any other. The checklist's "Check again" asks again
-// through the same function. Never rejects: a failed read reads as not checked.
+/**
+ * The chat role's model and its provider, and a stamp naming both and the key the provider holds now,
+ * so the setup checklist can tell a check about this model from one about a model chosen since.
+ */
+const describeChatModel = async () => {
+  const name = await llmRegistry.modelForRole("chat");
+  const model = name ? await llmRegistry.resolve(name) : null;
+  if (!model) return null;
+  const provider = (await llmRegistry.providers()).find(
+    (row) => row.id === model.providerId,
+  );
+  return {
+    model: model.upstream,
+    provider: provider?.name ?? model.providerKind,
+    stamp: `${model.modelId}:${model.keyId ?? "no-key"}`,
+  };
+};
+
+// Said once at boot: whether the chosen model can be called with its provider's key. A key without
+// access to it otherwise passes every start-up check and fails at the first message, in front of
+// whoever sent it. Kept with a stamp naming what it asked about, so the setup checklist repeats the
+// answer for that model and says "not checked yet" for any other. Never rejects.
 const checkModelAvailability = () =>
-  reportModelAvailability({
-    provider: runtimeModel.provider,
-    model: runtimeModel.defaultModel,
-    apiKey: () =>
-      resolveModelApiKey({
-        encryptionKey: config.keyEncryptionKey,
-        reader: credentialStore,
-        provider: runtimeModel.provider,
-        keyId: tenantPackage.model.credentialSecretRef,
-        environment: process.env,
-      }),
-  });
+  checkChosenModel({ registry: llmRegistry });
 const modelCheckAtBoot = (async () => {
-  const { stamp } = await modelKeyOf({
+  const { stamp } = await modelSourceOf({
     plan: Boolean(runtimeModel.plan),
-    provider: runtimeModel.provider,
-    keyId: tenantPackage.model.credentialSecretRef,
-    credentials: credentialStore,
-    environment: process.env,
+    describe: describeChatModel,
   });
   return { outcome: await checkModelAvailability(), stamp };
 })().catch(() => undefined);
 
-// Named collaborators are bound once in actorAgentResolver for chat, hops, and headless turns.
-
-/** The deployment's model key, resolved per call so a credential rotated a moment ago is used next. */
-const resolveRuntimeModelApiKey = () =>
-  resolveModelApiKey({
-    encryptionKey: config.keyEncryptionKey,
-    reader: credentialStore,
-    provider: runtimeModel.provider,
-    keyId: tenantPackage.model.credentialSecretRef,
-    environment: process.env,
-  });
+/**
+ * The model each built-in Bot thinks with, for one person: the Bot's own choice when its
+ * configuration names a model, the chat role's otherwise, through the gateway on a token naming the
+ * person as the payer and, in a space's channel, the space whose budget it counts against. Null,
+ * with the reason logged, when nothing is set up.
+ */
+const modelsForActor =
+  (actorId: string, spaceId?: string | null) =>
+  async (botId: string): Promise<BotLanguageModel | null> => {
+    try {
+      const [row] = await database
+        .select({ configuration: agents.configuration })
+        .from(agents)
+        .where(eq(agents.id, botId))
+        .limit(1);
+      const chosen = (row?.configuration as { model?: unknown } | undefined)
+        ?.model;
+      return await gatewayModels.languageModel(
+        { payerUserId: actorId, agentId: botId, spaceId: spaceId ?? null },
+        typeof chosen === "string" && chosen ? chosen : null,
+      );
+    } catch (error) {
+      if (!(error instanceof NoModelError)) throw error;
+      console.warn(
+        JSON.stringify({
+          type: "bot-has-no-model",
+          botId,
+          reason: error.message,
+        }),
+      );
+      return null;
+    }
+  };
 
 const hostAccessBroker = createHostAccessBroker(Date.now, {
   approvalGate: approvalService.gate,
@@ -1580,7 +1806,7 @@ const signRunForActor =
   (
     actorId: string,
     initiator: AuditInitiator = PERSON_INITIATOR,
-    // How deep in a Bot-to-Bot chain a headless turn already is; see createGroupConversations.
+    // How deep in a Bot-to-Bot chain a headless turn already is; see createConversations.
     depth?: number,
   ) =>
   (
@@ -1720,11 +1946,13 @@ const buildAgentFor = async ({
   agentId,
   initiator,
   depth,
+  threadId,
 }: {
   ownerUserId: string;
   agentId: string;
   initiator: AuditInitiator;
   depth?: number;
+  threadId?: string;
 }) => {
   const actor = await actorFor(ownerUserId);
   let agent: AbstractAgent | undefined;
@@ -1732,6 +1960,7 @@ const buildAgentFor = async ({
     agent = await actorAgentResolver.resolveAgentForActor(actor, agentId, {
       initiator,
       depth,
+      spaceId: (await placeOfThread(threadId))?.spaceId ?? null,
     });
   } catch (error) {
     if (!(error instanceof CoworkerUnavailableError)) throw error;
@@ -1766,21 +1995,8 @@ const routineRunner = createRoutineRunner({
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator }) => {
-      if (!computerGateway) return [];
-      const actor = await actorFor(ownerUserId);
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (!profile) throw new Error("That Bot is not available to this owner.");
-      // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return [];
-      return createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      });
-    },
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+      turnComputerTools(ownerUserId, agentId, initiator, threadId),
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
       Promise.resolve(undefined),
@@ -1799,7 +2015,7 @@ const routineRunner = createRoutineRunner({
 const baseAgentResolver = createActorAgentResolver({
   loadAgents: loadAgentsForActor,
   model: runtimeModel,
-  resolveModelApiKey: resolveRuntimeModelApiKey,
+  modelsForActor,
   stallGuard,
   loadToolsForActor: (actorId, initiator) =>
     restrictToolsForRun(
@@ -1894,7 +2110,7 @@ const responsibilityAnswerTurn = ({
     components: componentCatalog,
     buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),
     toolsForTurn: async () => [
-      ...(await approvalComputerTools(
+      ...(await turnComputerTools(
         responsibility.ownerUserId,
         responsibility.agentId,
         initiator,
@@ -1943,7 +2159,7 @@ const approvalOwner = workOwner("approval");
 const executeApprovedAction = createApprovedActionExecutor({
   sourceFor: sourceForCoordinationRun,
   gate: approvalService.gate,
-  computerTools: approvalComputerTools,
+  computerTools: turnComputerTools,
   hostTools: ({ actorId, botId, initiator }) =>
     hostAccessTools({
       broker: hostAccessBroker,
@@ -1968,8 +2184,8 @@ const approvalContinuationRunner = createTurnRunner({
   runner: routineAgentRunner,
   components: componentCatalog,
   buildAgentFor,
-  toolsForTurn: async ({ ownerUserId, agentId, initiator }) =>
-    approvalComputerTools(ownerUserId, agentId, initiator),
+  toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+    turnComputerTools(ownerUserId, agentId, initiator, threadId),
   learningContainerForThread: (input) =>
     copilotRuntime.learning?.containerForThread(input) ??
     Promise.resolve(undefined),
@@ -1989,42 +2205,57 @@ const openDuetChannels = createDuetChannelStore({
  * own group thread, built exactly as a routine's is, so governance, learning and the computer tools
  * apply unchanged; Bots answering each other reuse the handoff desk's grant and caps.
  */
-const groupConversations = createGroupConversations({
-  store: createGroupStore(database, () => threadIdentity.mint()),
-  queue: createWorkQueue(database),
-  owner: workOwner("group"),
-  roster: async (ownerUserId, channelId) => {
-    const actor = await actorFor(ownerUserId);
-    const channel = await channelStore.get(actor, channelId);
-    if (!channel || channel.agentIds.length < 2) return null;
-    const bots: { id: string; name: string }[] = [];
-    for (const agentId of channel.agentIds) {
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (profile) bots.push({ id: agentId, name: profile.name });
-    }
-    return bots;
+// Profiles, follows, posts and notifications: see social/service.ts.
+const social = createSocial({
+  database,
+  discoverSpaces: (userId, query) => workspace.discover(userId, query),
+});
+const workspace = createWorkspace({
+  database,
+  mayMessage: (fromUserId, toUserId) => social.mayMessage(fromUserId, toUserId),
+  actorFor,
+  profiles: agentProfileStore,
+  auditStore: bootAuditStore,
+  greet: ({ actorUserId, channelId, name, purpose }) =>
+    conversations.greet(actorUserId, channelId, { name, purpose }),
+});
+const invitations = createInvitations({ database, workspace });
+const desks = createDesks({
+  database,
+  checks: {
+    // A page goes up on a room's desk only from somebody who may open it, and is the room's after.
+    page: async ({ target, userId }) => {
+      if (target.kind !== "page") return;
+      const page = await openDuetPages.byId(target.pageId);
+      if (page?.ownerUserId !== userId)
+        throw new WorkspaceNotFoundError("That page");
+    },
+    app: (input) => apps.checkDeskTarget(input),
   },
+});
+
+// The web apps a space's Bots build in its computer: see apps/service.ts.
+const apps = createApps({
+  database,
+  gateway: computerGateway,
+  links: createAppLinks({ encryptionKey: config.keyEncryptionKey }),
+  workspace,
+});
+
+const conversations = createConversations({
+  store: createConversationStore(database, () => threadIdentity.mint()),
+  queue: createWorkQueue(database),
+  owner: workOwner("conversation"),
+  roster: (actorUserId, channelId) => workspace.roster(actorUserId, channelId),
+  describe: (channelId) => workspace.describe(channelId),
   runTurn: createTurnRunner({
     admission: serverTurnAdmission,
     intelligence: routineIntelligence,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator }) => {
-      if (!computerGateway) return [];
-      const actor = await actorFor(ownerUserId);
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (!profile) throw new Error("That Bot is not available to this owner.");
-      // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return [];
-      return createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      });
-    },
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+      turnComputerTools(ownerUserId, agentId, initiator, threadId),
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
       Promise.resolve(undefined),
@@ -2038,25 +2269,23 @@ const groupConversations = createGroupConversations({
   auditStore: bootAuditStore,
   activity: async (turn, agentId, text, sourceId) =>
     channelStore.recordActivity(
-      await actorFor(turn.ownerUserId),
+      await actorFor(turn.actorUserId),
       turn.channelId,
       { text, agentId, at: new Date() },
       { id: sourceId },
     ),
   busy: async (turn, busy) =>
     channelStore.signalChannelBusy(
-      await actorFor(turn.ownerUserId),
+      await actorFor(turn.actorUserId),
       turn.channelId,
       busy,
-      `group:${turn.messageId}`,
+      `conversation:${turn.messageId}`,
     ),
-  createChannel: async (ownerUserId, agentIds) =>
-    channelStore.create(await actorFor(ownerUserId), agentIds),
-  // The owner says whether a Bot's words may reach the other people in a group.
+  // The person says whether a Bot's words may reach the other people in a channel.
   privateShare: createPrivateShareCheck({ approvals: approvalService.store }),
-  // A Team Bot's consent card raised in a group turn is drawn in the shared transcript.
-  listenForConsent: (ownerUserId, agentId) =>
-    teamBots.listenForConsent(ownerUserId, agentId),
+  // A Team Bot's consent card raised in a shared turn is drawn in the shared transcript.
+  listenForConsent: (actorUserId, agentId) =>
+    teamBots.listenForConsent(actorUserId, agentId),
 });
 
 const approvalSweep = repeatAfterEach(
@@ -2067,7 +2296,7 @@ const approvalSweep = repeatAfterEach(
     executeApprovedAction,
     database,
     responsibilityStore,
-    groupConversations,
+    conversations,
     // The continuation after a decision is server work the browser never started: announce it.
     approvalContinuationRunner: signallingBusy(
       approvalContinuationRunner,
@@ -2299,21 +2528,8 @@ const wakeUpRunner = createWakeUpRunner({
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
-    toolsForTurn: async ({ ownerUserId, agentId, initiator }) => {
-      if (!computerGateway) return [];
-      const actor = await actorFor(ownerUserId);
-      const profile = await agentProfileStore.get(actor, agentId);
-      if (!profile) throw new Error("That Bot is not available to this owner.");
-      // A Team Bot's teammate uses the Bot, not its owner's signed-in computer.
-      if (!canUseComputer(profile, actor)) return [];
-      return createHeadlessComputerTools({
-        gateway: computerGateway,
-        botId: agentId,
-        actor: { id: actor.id, userId: actor.id, initiator },
-        auditStore: bootAuditStore,
-        ...(signInService ? { signIn: signInService } : {}),
-      });
-    },
+    toolsForTurn: async ({ ownerUserId, agentId, initiator, threadId }) =>
+      turnComputerTools(ownerUserId, agentId, initiator, threadId),
     learningContainerForThread: (input) =>
       copilotRuntime.learning?.containerForThread(input) ??
       Promise.resolve(undefined),
@@ -2355,13 +2571,13 @@ const deliverySweeps = DELIVERY_WORK_KINDS.map((kind) =>
 );
 
 const personResponseOwner = workOwner("person-response");
-const groupSweep = repeatAfterEach(async () => {
+const conversationSweep = repeatAfterEach(async () => {
   try {
-    while (await groupConversations.sweep()) {}
+    while (await conversations.sweep()) {}
   } catch (error) {
     console.error(
       JSON.stringify({
-        type: "group-sweep-error",
+        type: "conversation-sweep-error",
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
       }),
@@ -2421,7 +2637,7 @@ if (config.handoff.maxDepth > 0 && config.handoff.maxPerRun > 0) {
     actorFor,
     copilotRuntime,
     threadIdentity,
-    groupConversations,
+    conversations,
     channelStore,
   });
 }
@@ -2475,10 +2691,7 @@ const channelSummaries = {
   database,
   queue: createWorkQueue(database),
   transcript: routineIntelligence,
-  title: createChannelTitler({
-    model: runtimeModel.defaultModel,
-    resolveApiKey: resolveRuntimeModelApiKey,
-  }),
+  title: createChannelTitler({ complete: gatewayModels.complete }),
   owner: workOwner("summariser"),
 };
 repeatAfterEach(async () => {
@@ -2515,7 +2728,8 @@ await installEnterpriseControls({
   ...(computerProvider ? { provider: computerProvider } : {}),
   ...(config.computer?.token ? { computerToken: config.computer.token } : {}),
   ...(config.webBotAuth ? { webBotAuth: config.webBotAuth } : {}),
-  builtInModel: `${runtimeModel.provider}/${runtimeModel.defaultModel}`,
+  builtInModel: async () =>
+    (await llmRegistry.modelForRole("chat")) ?? undefined,
   people: peopleStore,
   initialAdminEmails: config.auth?.initialAdminEmails ?? [],
 });
@@ -2675,7 +2889,7 @@ const app = createApp(
     store: createVoiceSessionStore(database, channelStore),
     summarize: createVoiceSummarizer({
       model: runtimeModel,
-      resolveApiKey: resolveRuntimeModelApiKey,
+      complete: gatewayModels.complete,
     }),
     channels: channelStore,
   },
@@ -2728,15 +2942,11 @@ const app = createApp(
       setup: createSetupSources({
         productName: tenantPackage.productName,
         config,
-        environment: process.env,
         model: {
-          provider: runtimeModel.provider,
-          keyId: tenantPackage.model.credentialSecretRef,
-          defaultModel: runtimeModel.defaultModel,
           plan: Boolean(runtimeModel.plan),
+          describe: describeChatModel,
           check: checkModelAvailability,
         },
-        credentials: credentialStore,
         modelCheckAtBoot,
         entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
         plugins: pluginStore,
@@ -2767,7 +2977,7 @@ const app = createApp(
       bindings: responsibilityBindings,
       triggers: responsibilityTriggers,
     },
-    groups: groupConversations,
+    conversations,
     teamBots,
     lifecycle: {
       lifecycle: createBotLifecycleStore(database),
@@ -2789,6 +2999,42 @@ const app = createApp(
 
   identityStore,
   identityGithubCallback,
+  [
+    // The model gateway answers model calls with its own tokens, never a person's session.
+    () => [{ path: "/", routes: modelGateway.routes }],
+    (requireUser) => [
+      {
+        path: "/api/admin/llm",
+        routes: createLlmAdminRoutes(
+          { registry: llmRegistry, database },
+          requireUser,
+        ),
+      },
+    ],
+    (requireUser) =>
+      createWalletRoutes(wallets, requireUser, federatedTransfers),
+    (requireUser) => [createTimelineRoutes(timeline, requireUser)],
+    (requireUser) => [createAccessTokenRoutes(accessTokens, requireUser)],
+    (requireUser) => createSocialRoutes(social, requireUser),
+    (requireUser) => [createAppRoutes(apps, requireUser)],
+    // An app is served on its link alone, never on a person's session.
+    () => [createAppViewRoutes(apps)],
+    // Other nodes are answered on their signatures, never a person's session.
+    () => [createPeerRoutes(federation)],
+    (requireUser) => createFederationRoutes(federation, requireUser),
+    (requireUser) =>
+      createWorkspaceRoutes(
+        {
+          workspace,
+          invitations,
+          desks,
+          deskPage: (pageId) => openDuetPages.byId(pageId),
+        },
+        requireUser,
+      ),
+  ],
+  (userId, spaceId, need) => workspace.computerAccess(userId, spaceId, need),
+  accessTokens,
 );
 
 const { addresses: listening } = startHttpServer({
@@ -2797,6 +3043,8 @@ const { addresses: listening } = startHttpServer({
   resolveRequestActor,
   agentProfileStore,
   computerGateway,
+  spaceComputerAccess: (userId, spaceId) =>
+    workspace.computerAccess(userId, spaceId, "drive"),
   demonstrationStore,
   demonstrationRecorder,
   app,
@@ -2831,7 +3079,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     proactiveSweep.stop();
     approvalSweep.stop();
     personResponseSweep.stop();
-    groupSweep.stop();
+    conversationSweep.stop();
     for (const sweep of deliverySweeps) sweep.stop();
     void Promise.allSettled([
       channelActivityListener.stop(),

@@ -17,8 +17,8 @@ import {
 import type { DuetChannel } from "@/lib/duet-channels/queries";
 import { useDuetChannels } from "@/lib/duet-channels/use-channel";
 import { queryClient } from "@/query-client";
-import { ScreenNotice } from "./chat-screen";
 import { ChannelSheet } from "./channel-sheet";
+import { ScreenNotice } from "./chat-screen";
 
 /**
  * One channel, opened from the drawer: its own thread with the Bot, drawn by the same chat Chat

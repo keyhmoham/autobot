@@ -16,7 +16,7 @@ import {
 } from "../approvals/types";
 import type { AuditInitiator, AuditStore } from "../audit";
 import type { ChannelStore } from "../channels/routes";
-import type { ComputerGateway } from "../computer/gateway";
+import { type ComputerGateway, ownComputer } from "../computer/gateway";
 import { createHeadlessComputerTools } from "../computer/headless-tools";
 import type { mountCopilotRuntime } from "../copilot";
 import type { Database } from "../db/client";
@@ -108,7 +108,7 @@ export function createServerResponsibilityEngine(deps: {
               )
                 ? createHeadlessComputerTools({
                     gateway: computerGateway,
-                    botId: context.agentId,
+                    computer: ownComputer(context.agentId),
                     actor: { id: actor.id, userId: actor.id, initiator },
                     auditStore: bootAuditStore,
                     ...(signInService ? { signIn: signInService } : {}),

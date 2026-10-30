@@ -1,0 +1,1 @@
+ALTER TABLE "sign_in_requests" ADD COLUMN "computer_id" text;

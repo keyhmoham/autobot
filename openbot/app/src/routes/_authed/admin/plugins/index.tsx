@@ -28,6 +28,11 @@ import {
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import {
+  moreAppsRow,
+  moreAppsSectionDescription,
+  providerVocabulary,
+} from "@/lib/plugins/provider-vocabulary";
+import {
   type CatalogueItem,
   connectionsQueryOptions,
   type PluginServer,
@@ -35,11 +40,6 @@ import {
   pluginsPageQueryOptions,
   pluginsProvider,
 } from "@/lib/plugins/queries";
-import {
-  moreAppsRow,
-  moreAppsSectionDescription,
-  providerVocabulary,
-} from "@/lib/plugins/provider-vocabulary";
 
 /**
  * What this deployment can reach, as one list per state.

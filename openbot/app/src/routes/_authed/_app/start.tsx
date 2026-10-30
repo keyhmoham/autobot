@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AgentCard } from "@/components/agents/agent-card";
 import { Composer, toAgentOptions } from "@/components/channels/composer";
+import { usePageChrome } from "@/components/shell/page-chrome";
 import {
   Carousel,
   CarouselContent,
@@ -19,7 +20,6 @@ import {
   routeMessage,
 } from "@/lib/channels/route";
 import { useStartChannel } from "@/lib/channels/start";
-import { usePageChrome } from "@/components/shell/page-chrome";
 import { appConfig } from "@/lib/generated/application-config";
 
 /**

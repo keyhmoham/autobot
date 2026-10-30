@@ -24,13 +24,13 @@
  * answers the model with the message.
  */
 import { createHash } from "node:crypto";
+import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import {
   type ApprovalContinuation,
   type ApprovalStore,
   approvalAction,
   currentApprovalContext,
 } from "../approvals/types";
-import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 
 export const PRIVATE_SHARE_TOOL_REF = "openbot/share_private_information";
 export const PRIVATE_SHARE_EFFECT = "share_private";

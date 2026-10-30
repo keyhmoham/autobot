@@ -1,8 +1,8 @@
 import type { ActivityMessage, Message, ToolCall } from "@ag-ui/core";
-import { classifyAttachment } from "@/lib/channels/attachments";
-import { asText, REFUSAL_MARKER } from "@/lib/plugins/tool-result";
-import { readChannelHello } from "@/lib/channels/channel-hello";
 import { readTaskFrame } from "@openbot/shared/task-brief";
+import { classifyAttachment } from "@/lib/channels/attachments";
+import { readChannelHello } from "@/lib/channels/channel-hello";
+import { asText, REFUSAL_MARKER } from "@/lib/plugins/tool-result";
 
 /**
  * Transcript projection that pairs assistant tool calls with later tool-result messages.

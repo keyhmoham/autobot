@@ -1,7 +1,7 @@
 import {
+  type AttachmentPart,
   attachmentUrl,
   classifyAttachment,
-  type AttachmentPart,
 } from "@openbot/shared/attachments";
 import type { TaskReplyContext } from "@openbot/shared/task-reply";
 import {

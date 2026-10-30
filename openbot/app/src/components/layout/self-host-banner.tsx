@@ -2,11 +2,11 @@ import { IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
+import { appConfig } from "@/lib/generated/application-config";
 import {
   dismissSelfHostBannerMutationOptions,
   useUserPreferences,
 } from "@/lib/settings/message-list";
-import { appConfig } from "@/lib/generated/application-config";
 import { cn } from "@/lib/utils";
 
 /** `ref` tells CopilotKit the visit came from inside a running OpenDuet, not from the README. */

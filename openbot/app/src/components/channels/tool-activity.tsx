@@ -1,4 +1,9 @@
 import { CopilotKitContext } from "@copilotkit/react-core/v2/context";
+import {
+  readConnectPrompt,
+  SHOW_APP_ACCESS_TOOL,
+} from "@openbot/shared/connect-prompt";
+import { researchRoleOfTool } from "@openbot/shared/research";
 import { useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 import { Streamdown } from "streamdown";
 import { PendingApprovals } from "@/components/approvals/inline-approval";
@@ -18,11 +23,6 @@ import {
   toolResultFailed,
 } from "@/lib/plugins/tool-result";
 import { readTeamBotConsent } from "@/lib/team-bots";
-import {
-  readConnectPrompt,
-  SHOW_APP_ACCESS_TOOL,
-} from "@openbot/shared/connect-prompt";
-import { researchRoleOfTool } from "@openbot/shared/research";
 import { browserStepDetails, isBrowserStep } from "./browser-activity";
 import type { VisibleChatItem } from "./chat-messages";
 import { ToolLine } from "./tool-line";

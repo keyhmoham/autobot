@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SaveVoiceSessionInput } from "@openbot/shared/voice-session";
+import { type Complete, NoModelError } from "../src/llm/models";
 import { parseVoiceSessionInput } from "../src/voice/sessions";
 import { createVoiceSummarizer } from "../src/voice/summary";
 
@@ -35,54 +36,39 @@ test("voice transcripts enforce bounds, roles, unique IDs, and chronological dat
     expect(() => parseVoiceSessionInput(invalid)).toThrow();
 });
 
-test("voice summary uses the chat credential and treats transcript as quoted data", async () => {
-  let calls = 0;
+test("voice summary asks the chat model and treats the transcript as quoted data", async () => {
+  const asked: Parameters<Complete>[0][] = [];
   const summarize = createVoiceSummarizer({
     model: { provider: "openai", defaultModel: "chat-model" },
-    resolveApiKey: async () => "chat-key",
-    fetchImpl: async (_url, init) => {
-      calls++;
-      expect(new Headers(init?.headers).get("authorization")).toBe(
-        "Bearer chat-key",
-      );
-      const body = JSON.parse(String(init?.body));
-      expect(body.model).toBe("chat-model");
-      expect(body.messages[0].content).toContain("untrusted");
-      expect(body.messages[0].content).toContain("completed");
-      expect(body.messages[1].content).toContain("Please plan the launch.");
-      return Response.json({
-        choices: [
-          {
-            message: {
-              content: "Discussed launch planning. Next steps remain open.",
-            },
-          },
-        ],
-      });
+    complete: async (request) => {
+      asked.push(request);
+      return "Discussed launch planning. Next steps remain open.";
     },
   });
   expect(await summarize(input.transcript)).toBe(
     "Discussed launch planning. Next steps remain open.",
   );
-  expect(calls).toBe(1);
+  expect(asked).toHaveLength(1);
+  expect(asked[0]?.role).toBe("chat");
+  expect(asked[0]?.system).toContain("untrusted");
+  expect(asked[0]?.system).toContain("completed");
+  expect(asked[0]?.prompt).toContain("Please plan the launch.");
 });
 
-test("missing keys and provider failures cannot appear as successful summaries", async () => {
-  await expect(
-    createVoiceSummarizer({
-      model: { provider: "openai", defaultModel: "chat" },
-      resolveApiKey: async () => null,
-    })(input.transcript),
-  ).rejects.toThrow();
-  for (const response of [
-    new Response("upstream secret", { status: 500 }),
-    Response.json({ choices: [] }),
-  ]) {
+test("no model and model failures cannot appear as successful summaries", async () => {
+  for (const complete of [
+    async () => {
+      throw new NoModelError("None chosen.");
+    },
+    async () => {
+      throw new Error("The chat model answered 500.");
+    },
+    async () => "",
+  ] satisfies Complete[]) {
     await expect(
       createVoiceSummarizer({
         model: { provider: "openai", defaultModel: "chat" },
-        resolveApiKey: async () => "key",
-        fetchImpl: async () => response,
+        complete,
       })(input.transcript),
     ).rejects.toThrow();
   }

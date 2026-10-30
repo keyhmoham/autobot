@@ -9,7 +9,7 @@ import {
   type AuditStore,
   PERSON_INITIATOR,
 } from "../audit";
-import { groupSourceForRun } from "../channels/group";
+import { conversationSourceForRun } from "../channels/conversation";
 import type { ChannelStore } from "../channels/routes";
 import type { DeploymentConfig } from "../config";
 import type { Database } from "../db/client";
@@ -113,8 +113,10 @@ export function wireCoordination(deps: {
       // handoff to another person. Only the owner reading it is the ordinary, unheld case.
       questionAudience: async (from) => {
         const channel = await channelSourceForRun(from);
-        const group = channel ? null : await groupSourceForRun(database, from);
-        const source = channel ?? group;
+        const shared = channel
+          ? null
+          : await conversationSourceForRun(database, from);
+        const source = channel ?? shared;
         if (!source) return null;
         const members = (
           await database
@@ -125,12 +127,12 @@ export function wireCoordination(deps: {
         if (members.every((userId) => userId === from.actorId)) return null;
         return {
           audience: {
-            kind: group ? "group" : "channel",
+            kind: "channel",
             id: source.channelId,
             recipientUserIds: members,
           },
-          // A channel thread is the conversation itself; a group Bot's own thread also holds context
-          // only its owner has seen.
+          // A channel thread is the conversation itself; a Bot's own thread in a shared channel also
+          // holds context only the person it answers has seen.
           origin: channel
             ? { kind: "shared_conversation", sharedWithUserIds: members }
             : { kind: "private_conversation" },

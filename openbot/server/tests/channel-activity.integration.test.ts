@@ -1,15 +1,15 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { frameFirstDay } from "@openbot/shared/first-day";
-import { FIRST_DAY_KIND } from "../src/channels/first-day";
-import { MORNING_BRIEF_KIND } from "../src/channels/morning-brief";
-import { frameMorningBrief } from "@openbot/shared/morning-brief";
 import { randomUUID } from "node:crypto";
+import { frameFirstDay } from "@openbot/shared/first-day";
+import { frameMorningBrief } from "@openbot/shared/morning-brief";
 import { and, eq, inArray, like, sql } from "drizzle-orm";
 import {
   AgentNotFoundError,
   createAgentProfileStore,
 } from "../src/agents/profile-store";
 import type { AgentActor } from "../src/agents/profile-types";
+import { FIRST_DAY_KIND } from "../src/channels/first-day";
+import { MORNING_BRIEF_KIND } from "../src/channels/morning-brief";
 import {
   ChannelNotFoundError,
   createChannelStore,

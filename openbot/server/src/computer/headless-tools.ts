@@ -1,13 +1,14 @@
-import { z } from "zod";
-import { currentApprovalContext } from "../approvals/types";
-import { type AuditStore, recordAuditEvent } from "../audit";
 import {
   type HeadlessTool,
   HeadlessToolSuspension,
 } from "@openbot/toolkit/headless-tools";
+import { z } from "zod";
+import { currentApprovalContext } from "../approvals/types";
+import { type AuditStore, recordAuditEvent } from "../audit";
 import {
   type ActionActor,
   type ComputerGateway,
+  type ComputerRef,
   HumanHasControlError,
 } from "./gateway";
 import type { ControlState } from "./schema";
@@ -16,7 +17,7 @@ import type { ControlState } from "./schema";
 export type HeadlessSignInRequester = {
   request(input: {
     ownerUserId: string;
-    botId: string;
+    computer: ComputerRef;
     site: string;
     reason?: string;
     actor: ActionActor;
@@ -34,13 +35,15 @@ export const SIGN_IN_TOOL_DESCRIPTION =
 /** Shipped browser/file/command tools, with identity bound before the model supplies arguments. */
 export function createHeadlessComputerTools(options: {
   gateway: ComputerGateway;
-  botId: string;
+  /** The Bot acting, and the computer it acts on: its own, or its space's. */
+  computer: ComputerRef;
   actor: ActionActor;
   auditStore?: AuditStore;
   /** The private sign-in request. Absent leaves the Bot with help and secret requests only. */
   signIn?: HeadlessSignInRequester;
 }): HeadlessTool[] {
-  const { gateway, botId, actor, auditStore, signIn } = options;
+  const { gateway, computer, actor, auditStore, signIn } = options;
+  const { botId } = computer;
   const snapshotId = z.number().int().positive();
   const ref = z.string().min(1);
   const text = z.string().min(1);
@@ -95,7 +98,7 @@ export function createHeadlessComputerTools(options: {
       "Open a web page and return its title and readable text. Use the returned content to answer.",
       z.strictObject({ url: text }),
       async ({ url }, { toolCallId }) => {
-        const result = await gateway.navigate(botId, actor, url, toolCallId);
+        const result = await gateway.navigate(computer, actor, url, toolCallId);
         if (result.challenge)
           throw new HeadlessToolSuspension(result.challenge.reason, {
             kind: "computer_handoff",
@@ -110,19 +113,19 @@ export function createHeadlessComputerTools(options: {
       "computer_read",
       "Read the currently open browser page without navigating.",
       noArgs,
-      async () => ({ ok: true, ...(await gateway.read(botId)) }),
+      async () => ({ ok: true, ...(await gateway.read(computer)) }),
     ),
     tool(
       "computer_snapshot",
       "List fields, buttons and links with refs. Call before clicking or typing and pass the returned snapshotId with every ref. If refs are stale take a fresh snapshot.",
       noArgs,
-      async () => ({ ok: true, ...(await gateway.snapshot(botId)) }),
+      async () => ({ ok: true, ...(await gateway.snapshot(computer)) }),
     ),
     tool(
       "computer_screenshot",
       "Return an image of the browser currently open on your computer.",
       noArgs,
-      async () => ({ ok: true, ...(await gateway.screenshot(botId)) }),
+      async () => ({ ok: true, ...(await gateway.screenshot(computer)) }),
     ),
     tool(
       "computer_click",
@@ -130,7 +133,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ ref, snapshotId }),
       async (input, { signal }) => ({
         ok: true,
-        ...(await gateway.click(botId, actor, input, signal)),
+        ...(await gateway.click(computer, actor, input, signal)),
       }),
     ),
     tool(
@@ -144,7 +147,7 @@ export function createHeadlessComputerTools(options: {
       }),
       async (input, { signal }) => ({
         ok: true,
-        ...(await gateway.type(botId, actor, input, signal)),
+        ...(await gateway.type(computer, actor, input, signal)),
       }),
     ),
     tool(
@@ -161,7 +164,7 @@ export function createHeadlessComputerTools(options: {
         }),
       async (input, { signal }) => ({
         ok: true,
-        ...(await gateway.key(botId, actor, input, signal)),
+        ...(await gateway.key(computer, actor, input, signal)),
       }),
     ),
     tool(
@@ -170,7 +173,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ deltaY: z.number().optional() }),
       async (input) => ({
         ok: true,
-        ...(await gateway.scroll(botId, actor, input)),
+        ...(await gateway.scroll(computer, actor, input)),
       }),
     ),
     tool(
@@ -179,7 +182,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ path: z.string().optional() }),
       async (input) => ({
         ok: true,
-        ...(await gateway.listFiles(botId, actor, input)),
+        ...(await gateway.listFiles(computer, actor, input)),
       }),
     ),
     tool(
@@ -188,7 +191,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ path: text }),
       async (input) => ({
         ok: true,
-        ...(await gateway.readFile(botId, actor, input)),
+        ...(await gateway.readFile(computer, actor, input)),
       }),
     ),
     tool(
@@ -201,7 +204,7 @@ export function createHeadlessComputerTools(options: {
       }),
       async (input) => ({
         ok: true,
-        ...(await gateway.writeFile(botId, actor, input)),
+        ...(await gateway.writeFile(computer, actor, input)),
       }),
     ),
     tool(
@@ -210,7 +213,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ command: text }),
       async (input, { signal }) => ({
         ok: true,
-        ...(await gateway.runCommand(botId, actor, input, signal)),
+        ...(await gateway.runCommand(computer, actor, input, signal)),
       }),
     ),
     tool(
@@ -219,7 +222,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ reason: text }),
       async ({ reason }, { toolCallId }) =>
         waiting(
-          await gateway.requestHelp(botId, actor, reason, toolCallId),
+          await gateway.requestHelp(computer, actor, reason, toolCallId),
           reason,
         ),
     ),
@@ -229,7 +232,7 @@ export function createHeadlessComputerTools(options: {
       z.strictObject({ label: text, ref, snapshotId }),
       async (input) =>
         waiting(
-          await gateway.requestSecret(botId, actor, input),
+          await gateway.requestSecret(computer, actor, input),
           `The person must enter ${input.label} directly into the page.`,
           "computer_secret",
         ),
@@ -245,7 +248,7 @@ export function createHeadlessComputerTools(options: {
           const continuation = currentApprovalContext();
           const request = await signIn.request({
             ownerUserId: actor.userId ?? actor.id,
-            botId,
+            computer,
             site,
             ...(reason ? { reason } : {}),
             actor,

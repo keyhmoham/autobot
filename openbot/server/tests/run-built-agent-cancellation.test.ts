@@ -3,6 +3,7 @@ import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { EventType, HttpAgent } from "@ag-ui/client";
 import { LLMock } from "@copilotkit/aimock";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { z } from "zod";
 import {
   buildAgents,
@@ -10,8 +11,10 @@ import {
   type RuntimeModel,
   type ToolSelection,
 } from "../src/copilot";
-import type { GrantedTool } from "@openbot/toolkit/granted-tool";
-import { createModelCompleter } from "../src/routing/model";
+import {
+  completerFromEnvironment,
+  modelsFromEnvironment,
+} from "./support/models";
 
 const model: RuntimeModel = { provider: "openai", defaultModel: "gpt-5.5" };
 const input: RunAgentInput = {
@@ -114,7 +117,7 @@ async function fixture() {
           },
         ],
         model,
-        "synthetic-fixture-key",
+        modelsFromEnvironment(model, "synthetic-fixture-key"),
         undefined,
         async () => granted,
         undefined,
@@ -244,10 +247,7 @@ test("Stop cancels the production selector HTTP connection before a late reply c
   process.env.OPENAI_BASE_URL = endpoint.url;
   let records = 0;
   const agent = await f.agent(
-    createModelCompleter({
-      model,
-      resolveApiKey: async () => "synthetic-fixture-key",
-    }),
+    completerFromEnvironment(model, "synthetic-fixture-key"),
     undefined,
     async () => {
       records++;
@@ -507,7 +507,7 @@ test("Stop aborts a production wrapped remote AG-UI HTTP stream", async () => {
       },
     ],
     model,
-    "unused-synthetic-key",
+    modelsFromEnvironment(model, "unused-synthetic-key"),
   );
   const wrapped = agents["remote-fixture"];
   if (!wrapped) throw new Error("remote fixture not built");

@@ -1,6 +1,6 @@
+import { existsSync } from "node:fs";
 import { readFirstDay } from "@openbot/shared/first-day";
 import { readMorningBrief } from "@openbot/shared/morning-brief";
-import { existsSync } from "node:fs";
 import { frameTaskInput, readTaskBrief } from "@openbot/shared/task-brief";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import { ThreadLockBusyError } from "@openbot/toolkit/lease";
@@ -12,8 +12,8 @@ import type { Database } from "../db/client";
 import {
   type ProactiveEngineDeps,
   type ProactiveScope,
-  replyTail,
   replyEnding,
+  replyTail,
   type TaskThreads,
 } from "../proactive/engine";
 import type { createTaskReplyContext } from "./task-reply-context";

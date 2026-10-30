@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { PillButton } from "@/components/approvals/approval-card";
+import { useSheetPresence } from "@/hooks/use-sheet-presence";
 import { agentListQueryOptions } from "@/lib/agents/queries";
 import { clockTime } from "@/lib/approval-view";
 import {
@@ -9,7 +10,6 @@ import {
   approvalInboxOptions,
   waitingOnYou,
 } from "@/lib/approvals";
-import { useSheetPresence } from "@/hooks/use-sheet-presence";
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/query-client";
 import { DuetIcon } from "./icons";

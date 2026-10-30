@@ -167,6 +167,14 @@ export interface ComputerTransport {
     caller?: AbortSignal,
     timeoutMs?: number,
   ): Promise<ComputerDownload>;
+  /** The computer's own answer, whatever its status: for carrying an app's responses through. */
+  forward(
+    baseUrl: string,
+    botId: string,
+    path: string,
+    init: RequestInit,
+    timeoutMs?: number,
+  ): Promise<Response>;
 }
 
 /**
@@ -304,6 +312,16 @@ export function createComputerTransport(
     return { body: response.body, bytes };
   }
 
+  function forward(
+    baseUrl: string,
+    botId: string,
+    path: string,
+    init: RequestInit,
+    timeoutMs?: number,
+  ): Promise<Response> {
+    return request(baseUrl, botId, path, init, undefined, timeoutMs);
+  }
+
   function post<T>(
     baseUrl: string,
     botId: string,
@@ -344,7 +362,7 @@ export function createComputerTransport(
     });
   }
 
-  return { call, post, navigate, download };
+  return { call, post, navigate, download, forward };
 }
 
 /** Map agent-computer responses to errors that a caller can act on. */

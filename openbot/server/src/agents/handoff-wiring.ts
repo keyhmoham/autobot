@@ -3,7 +3,7 @@ import { IntelligenceAgentRunner } from "@copilotkit/runtime/v2";
 import { workOwner } from "@openbot/shared/work-owner";
 import { eq } from "drizzle-orm";
 import { type AuditStore, handoffInitiator } from "../audit";
-import type { GroupConversations } from "../channels/group";
+import type { Conversations } from "../channels/conversation";
 import type { ChannelStore } from "../channels/routes";
 import type { ThreadIdentity } from "../channels/thread-identity";
 import type { DeploymentConfig } from "../config";
@@ -37,7 +37,7 @@ export async function startHandoffDelivery(deps: {
   actorFor: (ownerUserId: string) => Promise<AgentActor>;
   copilotRuntime: ReturnType<typeof mountCopilotRuntime>;
   threadIdentity: ThreadIdentity;
-  groupConversations: GroupConversations;
+  conversations: Conversations;
   channelStore: ChannelStore;
 }): Promise<WorkOfferedListener> {
   const {
@@ -47,7 +47,7 @@ export async function startHandoffDelivery(deps: {
     actorFor,
     copilotRuntime,
     threadIdentity,
-    groupConversations,
+    conversations,
     channelStore,
   } = deps;
   const runner = createHandoffRunner({
@@ -103,9 +103,9 @@ export async function startHandoffDelivery(deps: {
           .from(intelligenceChannelMappings)
           .where(eq(intelligenceChannelMappings.threadId, input.threadId))
           .limit(1);
-        // A Bot's group thread maps to no channel; its answer goes to the shared transcript.
+        // A Bot's thread in a shared channel maps to no channel; its answer goes to the transcript.
         if (!mapped) {
-          await groupConversations.announceHandoff(input);
+          await conversations.announceHandoff(input);
           return;
         }
         const actor = await actorFor(input.actorId).catch(() => null);

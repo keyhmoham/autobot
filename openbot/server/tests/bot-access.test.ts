@@ -44,25 +44,25 @@ describe("the computer surface", () => {
   function app(actorId: string, role: "user" | "admin" = "user") {
     const reached: string[] = [];
     const gateway = {
-      resetComputer: async (botId: string) => {
-        reached.push(`reset:${botId}`);
+      resetComputer: async ({ computerId }: { computerId: string }) => {
+        reached.push(`reset:${computerId}`);
         return { cleared: true };
       },
-      updateComputer: async (botId: string) => {
-        reached.push(`update:${botId}`);
+      updateComputer: async ({ computerId }: { computerId: string }) => {
+        reached.push(`update:${computerId}`);
         return { updated: true, wasRunning: true };
       },
-      read: async (botId: string) => {
-        reached.push(`read:${botId}`);
+      read: async ({ computerId }: { computerId: string }) => {
+        reached.push(`read:${computerId}`);
         return { text: "a page" };
       },
-      screenshot: async (botId: string) => {
-        reached.push(`screenshot:${botId}`);
+      screenshot: async ({ computerId }: { computerId: string }) => {
+        reached.push(`screenshot:${computerId}`);
         return { image: "" };
       },
-      status: async (botId: string) => {
-        reached.push(`status:${botId}`);
-        return { botId, state: "ready" };
+      status: async ({ computerId }: { computerId: string }) => {
+        reached.push(`status:${computerId}`);
+        return { botId: computerId, state: "ready" };
       },
     } as never;
 
@@ -172,8 +172,8 @@ describe("a Team Bot's computer", () => {
     const reached: string[] = [];
     const record =
       (name: string) =>
-      async (botId: string, ..._rest: unknown[]) => {
-        reached.push(`${name}:${botId}`);
+      async ({ computerId }: { computerId: string }, ..._rest: unknown[]) => {
+        reached.push(`${name}:${computerId}`);
         return { ok: true };
       };
     const gateway = {
@@ -255,12 +255,12 @@ describe("a path that starts with a deployment route", () => {
     const reached: string[] = [];
     const asked: string[] = [];
     const gateway = {
-      status: async (botId: string) => {
-        reached.push(`status:${botId}`);
-        return { botId, state: "ready" };
+      status: async ({ computerId }: { computerId: string }) => {
+        reached.push(`status:${computerId}`);
+        return { botId: computerId, state: "ready" };
       },
-      screenshot: async (botId: string) => {
-        reached.push(`screenshot:${botId}`);
+      screenshot: async ({ computerId }: { computerId: string }) => {
+        reached.push(`screenshot:${computerId}`);
         return { image: "" };
       },
       computers: async () => [],

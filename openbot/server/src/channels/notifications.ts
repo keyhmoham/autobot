@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { CHANNEL_ACTIVITY_TOPIC, type ChannelActivityEvent } from "./events";
+import { CHANNEL_ACTIVITY_TOPIC, type MemberEvent } from "./events";
 
 /** Leave room for event metadata and at least one ordinary recipient; measure the rest below. */
 export const MAX_CHANNEL_EVENT_TEXT_BYTES = 4_096;
@@ -13,8 +13,8 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
  * the hub delivers by memberIds, so each member still hears the change exactly once.
  */
 export async function announceChannelActivity(
-  transaction: Transaction,
-  event: ChannelActivityEvent,
+  transaction: Transaction | Database,
+  event: MemberEvent,
 ): Promise<void> {
   const baseBytes = Buffer.byteLength(
     JSON.stringify({ ...event, memberIds: [] }),

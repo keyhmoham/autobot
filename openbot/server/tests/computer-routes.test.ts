@@ -9,8 +9,8 @@ describe("computer routes", () => {
   test("gets a screenshot through the governed computer gateway", async () => {
     const requestedBotIds: string[] = [];
     const gateway = {
-      screenshot: async (botId: string) => {
-        requestedBotIds.push(botId);
+      screenshot: async ({ computerId }: { computerId: string }) => {
+        requestedBotIds.push(computerId);
         return { image: "aGVsbG8=", mimeType: "image/png" as const };
       },
     } as unknown as ComputerGateway;

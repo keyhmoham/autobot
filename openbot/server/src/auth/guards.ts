@@ -10,6 +10,8 @@ export type AuthenticatedActor = {
   name?: string | null;
   image?: string | null;
   role: OpenBotRole;
+  /** How this request proved who it is. Absent is a session, which is everything but a token. */
+  credential?: "session" | "token";
 };
 
 export type AuthService = {

@@ -4,16 +4,16 @@ import { Link } from "@tanstack/react-router";
 import { Fragment } from "react";
 import { HandoffPanel } from "@/components/agents/handoff-panel";
 import {
+  PageEmpty,
+  PageRows,
+  PageSection,
+} from "@/components/layout/page-shell";
+import {
   AppAccessAction,
   appAccessSentence,
 } from "@/components/plugins/app-access-action";
 import { PluginLogo } from "@/components/plugins/plugin-logo";
 import { Button } from "@/components/ui/button";
-import {
-  PageEmpty,
-  PageRows,
-  PageSection,
-} from "@/components/layout/page-shell";
 import {
   Item,
   ItemActions,

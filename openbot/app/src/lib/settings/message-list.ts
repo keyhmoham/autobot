@@ -1,3 +1,4 @@
+import type { UserPreferences } from "@openbot/shared/user-preferences";
 import {
   mutationOptions,
   type QueryClient,
@@ -6,7 +7,6 @@ import {
 } from "@tanstack/react-query";
 import { currentUserQueryOptions } from "@/lib/auth/queries";
 import { client } from "@/lib/client";
-import type { UserPreferences } from "@openbot/shared/user-preferences";
 import { settingsKeys } from "./queries";
 
 export type { MessageListEmphasis } from "@openbot/shared/user-preferences";

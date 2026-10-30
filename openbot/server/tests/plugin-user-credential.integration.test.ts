@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createApp } from "../src/app";
 import { createAuditStore } from "../src/audit";
 import type { ActionPolicy } from "../src/computer/policy";
+import { loadConfig } from "../src/config";
 import { encryptSecret } from "../src/credentials";
 import { createDatabase } from "../src/db/client";
 import {
@@ -22,7 +23,6 @@ import {
   type VendorRevocation,
   VendorRevocationUnreachableError,
 } from "../src/plugins/store";
-import { loadConfig } from "../src/config";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 import { testEnvironment } from "./support/environment";
 

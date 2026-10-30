@@ -1,34 +1,37 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
+import type { TurnRunner } from "@openbot/toolkit/run-turn";
 import { eq, inArray, like } from "drizzle-orm";
 import { createAgentProfileStore } from "../src/agents/profile-store";
 import type { AgentActor } from "../src/agents/profile-types";
 import type { AuditEventInput } from "../src/audit";
 import {
-  createGroupConversations,
-  createGroupRoutes,
-  createGroupStore,
-  GROUP_TURN_KIND,
-  GroupNotFoundError,
-  GroupRefusedError,
-  groupSourceForRun,
-} from "../src/channels/group";
-import { createChannelStore } from "../src/channels/routes";
+  CONVERSATION_TURN_KIND,
+  ConversationNotFoundError,
+  ConversationRefusedError,
+  conversationSourceForRun,
+  createConversationRoutes,
+  createConversationStore,
+  createConversations,
+} from "../src/channels/conversation";
 import { createThreadIdentity } from "../src/channels/thread-identity";
 import { createDatabase } from "../src/db/client";
 import {
   agentProfiles,
   agents,
-  channels,
-  intelligenceChannelMappings,
+  spaces,
   users,
   workItems,
 } from "../src/db/schema";
 import { createPrivateShareCheck } from "../src/proactive/private-share";
-import type { TurnRunner } from "@openbot/toolkit/run-turn";
 import { createTeamBots } from "../src/team-bots/team-bots";
-import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import { createWorkQueue } from "../src/work/queue";
+import {
+  WorkspaceForbiddenError,
+  WorkspaceRefusedError,
+} from "../src/workspace/errors";
+import { createWorkspace } from "../src/workspace/service";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 
 const database = createDatabase(testDatabaseUrl(), TEST_POOL);
@@ -37,20 +40,20 @@ const profileStore = createAgentProfileStore(
   new URL("https://managed.example.test/ag-ui"),
 );
 const threadIdentity = createThreadIdentity("test-deployment");
-const channelStore = createChannelStore(database, profileStore, threadIdentity);
-const prefix = `group-${randomUUID()}`;
+const workspace = createWorkspace({
+  database,
+  actorFor: async (id) => ({ id, role: "user" }),
+  profiles: profileStore,
+});
+const prefix = `conversation-${randomUUID()}`;
 const createdUsers: string[] = [];
 const createdAgents: string[] = [];
-const createdChannels: string[] = [];
+const createdSpaces: string[] = [];
 
 afterEach(async () => {
   await database.delete(workItems).where(like(workItems.key, `${prefix}%`));
-  for (const id of createdChannels.splice(0)) {
-    await database
-      .delete(intelligenceChannelMappings)
-      .where(eq(intelligenceChannelMappings.channelId, id));
-    await database.delete(channels).where(eq(channels.id, id));
-  }
+  for (const id of createdSpaces.splice(0))
+    await database.delete(spaces).where(eq(spaces.id, id));
   if (createdAgents.length) {
     const ids = createdAgents.splice(0);
     await database
@@ -84,6 +87,33 @@ async function bot(owner: AgentActor, name: string) {
   return profile.id;
 }
 
+/** A channel in a fresh space of the owner's, holding these Bots in this order. */
+async function channelWith(owner: AgentActor, agentIds: string[]) {
+  const space = await workspace.create(owner.id, { name: `${prefix} space` });
+  createdSpaces.push(space.id);
+  for (const agentId of agentIds)
+    await workspace.addAgent(owner.id, space.id, agentId);
+  const [room] = (await workspace.get(owner.id, space.id)).rooms;
+  return workspace.createChannel(owner.id, room?.id ?? "", {
+    name: "launch",
+    agentIds,
+  });
+}
+
+/** Put a person in the space a channel is in, which puts them in its open room's channels. */
+async function admit(channelId: string, member: AgentActor) {
+  const place = await workspace.spaceOf(channelId);
+  await database.transaction((transaction) =>
+    workspace.admit(
+      transaction,
+      place?.spaceId ?? "",
+      member.id,
+      "member",
+      null,
+    ),
+  );
+}
+
 function service(options: {
   replies: Record<
     string,
@@ -92,30 +122,21 @@ function service(options: {
   maxDepth?: number;
   granted?: boolean;
   auditFails?: boolean;
-  privateShare?: Parameters<typeof createGroupConversations>[0]["privateShare"];
+  privateShare?: Parameters<typeof createConversations>[0]["privateShare"];
   listenForConsent?: Parameters<
-    typeof createGroupConversations
+    typeof createConversations
   >[0]["listenForConsent"];
-  activity?: Parameters<typeof createGroupConversations>[0]["activity"];
+  activity?: Parameters<typeof createConversations>[0]["activity"];
 }) {
   const calls: Parameters<TurnRunner>[0][] = [];
   const audit: AuditEventInput[] = [];
-  const conversations = createGroupConversations({
-    store: createGroupStore(database, () => threadIdentity.mint()),
+  const conversations = createConversations({
+    store: createConversationStore(database, () => threadIdentity.mint()),
     queue: createWorkQueue(database),
     owner: `${prefix}-replica`,
-    // The production wiring's roster, against the real channel and profile stores.
-    roster: async (ownerUserId, channelId) => {
-      const actor: AgentActor = { id: ownerUserId, role: "user" };
-      const channel = await channelStore.get(actor, channelId);
-      if (!channel || channel.agentIds.length < 2) return null;
-      const bots = [];
-      for (const agentId of channel.agentIds) {
-        const profile = await profileStore.get(actor, agentId);
-        if (profile) bots.push({ id: agentId, name: profile.name });
-      }
-      return bots;
-    },
+    // The production wiring's roster, against the real workspace and profile stores.
+    roster: (actorUserId, channelId) =>
+      workspace.roster(actorUserId, channelId),
     runTurn: async (input) => {
       calls.push(input);
       const reply = options.replies[input.agentId];
@@ -129,14 +150,6 @@ function service(options: {
         if (options.auditFails) throw new Error("audit store unavailable");
         audit.push(event);
       },
-    },
-    createChannel: async (ownerUserId, agentIds) => {
-      const channel = await channelStore.create(
-        { id: ownerUserId, role: "user" },
-        agentIds,
-      );
-      createdChannels.push(channel.id);
-      return channel;
     },
     progressEveryMs: 0,
     ...(options.privateShare ? { privateShare: options.privateShare } : {}),
@@ -163,8 +176,7 @@ describe("group conversations in PostgreSQL", () => {
     const [ada = "", grace = ""] = [...named.keys()].sort();
     const A = named.get(ada) ?? "";
     const G = named.get(grace) ?? "";
-    const channel = await channelStore.create(owner, [ada, grace]);
-    createdChannels.push(channel.id);
+    const channel = await channelWith(owner, [ada, grace]);
     const { conversations, calls, audit } = service({
       replies: {
         [ada]: () => `Draft ready. @${G} can you check the numbers?`,
@@ -216,14 +228,14 @@ describe("group conversations in PostgreSQL", () => {
     // A group Bot's thread authorises its own coordination callbacks, and no one else's.
     const threadId = calls[0]?.threadId ?? "";
     expect(
-      await groupSourceForRun(database, {
+      await conversationSourceForRun(database, {
         threadId,
         actorId: owner.id,
         botId: ada,
       }),
     ).toEqual({ channelId: channel.id, botId: ada });
     expect(
-      await groupSourceForRun(database, {
+      await conversationSourceForRun(database, {
         threadId,
         actorId: owner.id,
         botId: grace,
@@ -244,27 +256,26 @@ describe("group conversations in PostgreSQL", () => {
     const stranger = await person();
     const ada = await bot(owner, "Ada");
     const grace = await bot(owner, "Grace");
-    const channel = await channelStore.create(owner, [ada, grace]);
-    createdChannels.push(channel.id);
+    const channel = await channelWith(owner, [ada, grace]);
     const { conversations, calls } = service({
       replies: { [ada]: () => "hi", [grace]: () => "hello" },
     });
     await expect(conversations.list(stranger.id, channel.id)).rejects.toThrow(
-      GroupNotFoundError,
+      ConversationNotFoundError,
     );
     await expect(
       conversations.send(stranger.id, channel.id, {
         id: `${prefix}-intruder`,
         text: "let me in",
       }),
-    ).rejects.toThrow(GroupNotFoundError);
+    ).rejects.toThrow(ConversationNotFoundError);
     await expect(
       conversations.send(owner.id, channel.id, {
         id: `${prefix}-wrong-bot`,
         text: "only you",
         agentId: "not-in-this-group",
       }),
-    ).rejects.toThrow(GroupRefusedError);
+    ).rejects.toThrow(ConversationRefusedError);
 
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-only-ada`,
@@ -274,7 +285,7 @@ describe("group conversations in PostgreSQL", () => {
     await drain(conversations);
     expect(calls.map((call) => call.agentId)).toEqual([ada]);
     expect(
-      await groupSourceForRun(database, {
+      await conversationSourceForRun(database, {
         threadId: calls[0]?.threadId,
         actorId: stranger.id,
         botId: ada,
@@ -282,12 +293,15 @@ describe("group conversations in PostgreSQL", () => {
     ).toBeNull();
 
     // Over HTTP the refusal is the same not-found as a channel that does not exist.
-    const routes = createGroupRoutes(conversations, async (context, next) => {
-      context.set("actor", {
-        id: context.req.header("x-test-user") ?? "",
-      } as never);
-      await next();
-    });
+    const routes = createConversationRoutes(
+      conversations,
+      async (context, next) => {
+        context.set("actor", {
+          id: context.req.header("x-test-user") ?? "",
+        } as never);
+        await next();
+      },
+    );
     const asStranger = await routes.request(`/${channel.id}`, {
       headers: { "x-test-user": stranger.id },
     });
@@ -305,8 +319,7 @@ describe("group conversations in PostgreSQL", () => {
     const owner = await person();
     const ada = await bot(owner, "Ada");
     const grace = await bot(owner, "Grace");
-    const channel = await channelStore.create(owner, [ada, grace]);
-    createdChannels.push(channel.id);
+    const channel = await channelWith(owner, [ada, grace]);
     const { conversations, calls, audit } = service({
       granted: false,
       replies: { [ada]: () => "@Grace over to you", [grace]: () => "ok" },
@@ -324,7 +337,7 @@ describe("group conversations in PostgreSQL", () => {
         await database
           .select()
           .from(workItems)
-          .where(eq(workItems.kind, GROUP_TURN_KIND))
+          .where(eq(workItems.kind, CONVERSATION_TURN_KIND))
       ).filter((row) => row.key.startsWith(prefix) && row.key.includes(">")),
     ).toEqual([]);
   });
@@ -332,8 +345,7 @@ describe("group conversations in PostgreSQL", () => {
     const owner = await person();
     const ada = await bot(owner, "Ada");
     const grace = await bot(owner, "Grace");
-    const channel = await channelStore.create(owner, [ada, grace]);
-    createdChannels.push(channel.id);
+    const channel = await channelWith(owner, [ada, grace]);
     const { conversations, calls } = service({
       replies: { [ada]: () => "@Grace over to you", [grace]: () => "ok" },
       // Only Ada's saved reply fails to reach the activity feed; the person's message still does.
@@ -368,8 +380,7 @@ describe("group conversations in PostgreSQL", () => {
     const owner = await person();
     const ada = await bot(owner, "Ada");
     const grace = await bot(owner, "Grace");
-    const channel = await channelStore.create(owner, [ada, grace]);
-    createdChannels.push(channel.id);
+    const channel = await channelWith(owner, [ada, grace]);
     const { conversations } = service({
       auditFails: true,
       replies: { [ada]: () => "@Grace over to you", [grace]: () => "ok" },
@@ -396,9 +407,7 @@ describe("group conversations in PostgreSQL", () => {
     const { conversations, calls } = service({
       replies: { [ada]: () => "a", [grace]: () => "g", [linus]: () => "l" },
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [linus, ada, grace],
-    });
+    const channel = await channelWith(owner, [linus, ada, grace]);
     expect(
       (await conversations.list(owner.id, channel.id)).bots.map((b) => b.id),
     ).toEqual([linus, ada, grace]);
@@ -441,9 +450,7 @@ describe("group conversations in PostgreSQL", () => {
         },
       },
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
+    const channel = await channelWith(owner, [ada, grace]);
     channelId = channel.id;
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-stream`,
@@ -489,7 +496,7 @@ describe("group conversations in PostgreSQL", () => {
     ).toBe(false);
   });
 
-  test("a member can add another signed-in person, who then reads the shared transcript", async () => {
+  test("a person let into the space reads the shared transcript, but cannot run another's private Bots", async () => {
     const owner = await person();
     const teammate = await person();
     const ada = await bot(owner, "Ada");
@@ -497,28 +504,31 @@ describe("group conversations in PostgreSQL", () => {
     const { conversations } = service({
       replies: { [ada]: () => "a", [grace]: () => "g" },
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
+    const channel = await channelWith(owner, [ada, grace]);
     await expect(conversations.list(teammate.id, channel.id)).rejects.toThrow(
-      GroupNotFoundError,
+      ConversationNotFoundError,
     );
-    const [row] = await database
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, teammate.id));
-    await conversations.addMember(owner.id, channel.id, {
-      email: row?.email.toUpperCase(),
-    });
+    await admit(channel.id, teammate);
     const seen = await conversations.list(teammate.id, channel.id);
     // The owner's private Bots stay private: the teammate reads, but cannot run them.
     expect(seen.bots).toEqual([]);
-    await expect(
-      conversations.addMember(teammate.id, channel.id, {
-        email: "nobody@example.test",
-      }),
-    ).rejects.toThrow(GroupRefusedError);
+    expect(seen.people.map((row) => row.userId).sort()).toEqual(
+      [owner.id, teammate.id].sort(),
+    );
+    // A message to the people only runs nothing, and is still in everybody's transcript.
+    const sent = await conversations.send(teammate.id, channel.id, {
+      id: `${prefix}-people-only`,
+      text: "hi all",
+      peopleOnly: true,
+    });
+    expect(sent.queued).toBe(false);
+    expect(
+      (await conversations.list(owner.id, channel.id)).messages.map(
+        (m) => m.text,
+      ),
+    ).toEqual(["hi all"]);
   });
+
   test("with another person in the group, a reply waits for the owner's permission before anyone sees it", async () => {
     const owner = await person();
     const teammate = await person();
@@ -546,9 +556,7 @@ describe("group conversations in PostgreSQL", () => {
       },
       privateShare,
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
+    const channel = await channelWith(owner, [ada, grace]);
 
     // Alone in the group, nothing is asked.
     await conversations.send(owner.id, channel.id, {
@@ -559,11 +567,7 @@ describe("group conversations in PostgreSQL", () => {
     await drain(conversations);
     expect(opened).toHaveLength(0);
 
-    const [row] = await database
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, teammate.id));
-    await conversations.addMember(owner.id, channel.id, { email: row?.email });
+    await admit(channel.id, teammate);
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-shared`,
       text: "status for everyone?",
@@ -607,14 +611,8 @@ describe("group conversations in PostgreSQL", () => {
       },
       privateShare,
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
-    const [row] = await database
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, teammate.id));
-    await conversations.addMember(owner.id, channel.id, { email: row?.email });
+    const channel = await channelWith(owner, [ada, grace]);
+    await admit(channel.id, teammate);
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-held-relay-send`,
       text: "ask grace",
@@ -671,15 +669,9 @@ describe("group conversations in PostgreSQL", () => {
       },
       privateShare,
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
+    const channel = await channelWith(owner, [ada, grace]);
     channelId = channel.id;
-    const [row] = await database
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, teammate.id));
-    await conversations.addMember(owner.id, channel.id, { email: row?.email });
+    await admit(channel.id, teammate);
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-stream-private`,
       text: "status?",
@@ -733,15 +725,9 @@ describe("group conversations in PostgreSQL", () => {
       },
       privateShare,
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
+    const channel = await channelWith(owner, [ada, grace]);
     channelId = channel.id;
-    const [row] = await database
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, teammate.id));
-    await conversations.addMember(owner.id, channel.id, { email: row?.email });
+    await admit(channel.id, teammate);
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-handed-private`,
       text: "status?",
@@ -768,9 +754,7 @@ describe("group conversations in PostgreSQL", () => {
       },
       maxDepth: 1,
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
+    const channel = await channelWith(owner, [ada, grace]);
     await conversations.send(owner.id, channel.id, {
       id: `${prefix}-chain`,
       text: "start",
@@ -839,9 +823,7 @@ describe("group conversations in PostgreSQL", () => {
       listenForConsent: (ownerUserId, agentId) =>
         teamBots.listenForConsent(ownerUserId, agentId),
     });
-    const channel = await conversations.create(teammate.id, {
-      agentIds: [teamBot, own],
-    });
+    const channel = await channelWith(teammate, [teamBot, own]);
     await conversations.send(teammate.id, channel.id, {
       id: `${prefix}-consent`,
       text: "mail the team",
@@ -859,7 +841,7 @@ describe("group conversations in PostgreSQL", () => {
     expect(people.map((row) => row.userId)).toEqual([teammate.id]);
   });
 
-  test("the person who made a group can take someone out; others can only leave", async () => {
+  test("people taken out of the space, or leaving it, stop reading its channels", async () => {
     const owner = await person();
     const second = await person();
     const third = await person();
@@ -868,39 +850,26 @@ describe("group conversations in PostgreSQL", () => {
     const { conversations } = service({
       replies: { [ada]: () => "a", [grace]: () => "g" },
     });
-    const channel = await conversations.create(owner.id, {
-      agentIds: [ada, grace],
-    });
-    for (const member of [second, third]) {
-      const [row] = await database
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.id, member.id));
-      await conversations.addMember(owner.id, channel.id, {
-        email: row?.email,
-      });
-    }
+    const channel = await channelWith(owner, [ada, grace]);
+    const place = await workspace.spaceOf(channel.id);
+    const spaceId = place?.spaceId ?? "";
+    for (const member of [second, third]) await admit(channel.id, member);
     expect(
-      (await conversations.list(owner.id, channel.id)).people.map((p) => [
-        p.userId,
-        p.creator,
-      ]),
-    ).toEqual([
-      [owner.id, true],
-      [second.id, false],
-      [third.id, false],
-    ]);
+      (await conversations.list(owner.id, channel.id)).people.map(
+        (p) => p.userId,
+      ),
+    ).toEqual([owner.id, second.id, third.id]);
     await expect(
-      conversations.removeMember(second.id, channel.id, third.id),
-    ).rejects.toThrow(GroupRefusedError);
+      workspace.removeMember(second.id, spaceId, third.id),
+    ).rejects.toThrow(WorkspaceForbiddenError);
     await expect(
-      conversations.removeMember(owner.id, channel.id, owner.id),
-    ).rejects.toThrow(GroupRefusedError);
-    await conversations.removeMember(second.id, channel.id, second.id);
-    await conversations.removeMember(owner.id, channel.id, third.id);
+      workspace.removeMember(owner.id, spaceId, owner.id),
+    ).rejects.toThrow(WorkspaceRefusedError);
+    await workspace.removeMember(second.id, spaceId, second.id);
+    await workspace.removeMember(owner.id, spaceId, third.id);
     for (const gone of [second, third])
       await expect(conversations.list(gone.id, channel.id)).rejects.toThrow(
-        GroupNotFoundError,
+        ConversationNotFoundError,
       );
   });
 });

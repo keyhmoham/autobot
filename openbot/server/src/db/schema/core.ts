@@ -1,6 +1,9 @@
+import type { UserPreferences } from "@openbot/shared/user-preferences";
+import { CHANNEL_KINDS, type ChannelKind } from "@openbot/shared/workspace";
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   index,
   integer,
@@ -12,10 +15,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { UserPreferences } from "@openbot/shared/user-preferences";
 // NOT drizzle's `jsonb`: that one serialises, and so does the driver, so every object landed as a
 // JSON string and nothing in this database could be queried by a JSON field. See ./json.ts.
 import { jsonb } from "./json";
+import { rooms } from "./workspace";
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => "bytea",
@@ -285,6 +288,23 @@ export const channels = pgTable(
   "channels",
   {
     id: text("id").primaryKey(),
+    /**
+     * How the conversation is held (shared/workspace.ts `CHANNEL_KINDS`). `assistant` and `task` are
+     * one person's, in their Intelligence thread; `room` and `direct` are shared transcripts that
+     * every member reads (`channel_messages`). Decided when the channel is made and never changed.
+     */
+    kind: text("kind").$type<ChannelKind>().notNull().default("assistant"),
+    /** The room a `room` channel is in. Null for every other kind. */
+    roomId: text("room_id").references(() => rooms.id, { onDelete: "cascade" }),
+    /** Who made it. Null for one the deployment made, or whose maker has since been removed. */
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /**
+     * The two people a `direct` channel is between, as their sorted user ids joined by a colon, so
+     * "one direct conversation per pair" is a unique index rather than a lookup two requests race.
+     */
+    directKey: text("direct_key"),
     name: text("name").notNull(),
     description: text("description").notNull(),
     suggestedPrompts: text("suggested_prompts").array().notNull().default([]),
@@ -388,6 +408,24 @@ export const channels = pgTable(
     index("channels_awaiting_summary_idx")
       .on(table.id)
       .where(sql`${table.summary} is null and ${table.deletedAt} is null`),
+    index("channels_room_idx")
+      .on(table.roomId)
+      .where(sql`${table.roomId} is not null`),
+    uniqueIndex("channels_direct_key_idx")
+      .on(table.directKey)
+      .where(sql`${table.directKey} is not null`),
+    check(
+      "channels_kind_check",
+      sql`${table.kind} IN (${sql.raw(CHANNEL_KINDS.map((kind) => `'${kind}'`).join(", "))})`,
+    ),
+    check(
+      "channels_room_kind_check",
+      sql`(${table.kind} = 'room') = (${table.roomId} is not null)`,
+    ),
+    check(
+      "channels_direct_kind_check",
+      sql`(${table.kind} = 'direct') = (${table.directKey} is not null)`,
+    ),
   ],
 );
 

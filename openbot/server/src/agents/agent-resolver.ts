@@ -2,6 +2,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { AuditInitiator } from "../audit";
 import type { AgentFetch, StallGuard } from "../channels/stall-guard";
 import {
+  type BotModelSource,
   type HandoffForRun,
   type LoadAgentsForActor,
   type LoadAttachment,
@@ -20,6 +21,8 @@ import type { AgentActor } from "./profile-types";
 export type AgentResolutionContext = {
   initiator?: AuditInitiator;
   depth?: number;
+  /** The space the run works for, whose budget its model calls count against. */
+  spaceId?: string | null;
 };
 
 export class CoworkerUnavailableError extends Error {}
@@ -38,7 +41,11 @@ export type ActorAgentResolver = {
 export type ActorAgentResolverDependencies = {
   loadAgents: LoadAgentsForActor;
   model: RuntimeModel;
-  resolveModelApiKey: () => Promise<string | null>;
+  /**
+   * The model each built-in Bot thinks with, for one person: through the model gateway, on a token
+   * naming that person as the payer. Per actor because the token is.
+   */
+  modelsForActor: (actorId: string, spaceId?: string | null) => BotModelSource;
   stallGuard?: StallGuard;
   loadToolsForActor?: (
     actorId: string,
@@ -96,7 +103,7 @@ export function createActorAgentResolver(
     resolveRuntimeAgents(
       () => Promise.resolve(registered),
       deps.model,
-      deps.resolveModelApiKey,
+      deps.modelsForActor(actor.id, context?.spaceId),
       deps.stallGuard,
       deps.loadToolsForActor?.(actor.id, context?.initiator),
       deps.signRunForActor?.(actor.id, context?.initiator, context?.depth),

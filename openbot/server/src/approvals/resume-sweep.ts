@@ -5,7 +5,7 @@ import { z } from "zod";
 import { headlessTurnRefusal } from "../admin/controls";
 import type { AgentActor } from "../agents/profile-types";
 import { PERSON_INITIATOR } from "../audit";
-import type { GroupConversations } from "../channels/group";
+import type { Conversations } from "../channels/conversation";
 import type { ChannelStore } from "../channels/routes";
 import type { Database } from "../db/client";
 import {
@@ -22,7 +22,7 @@ import type { ApprovalResumeDependencies, ApprovalService } from "./service";
 
 /**
  * One pass of the approval resume loop: claim a decided approval, carry it out, and pick the waiting
- * turn back up — a responsibility run, a group conversation or a routine run — then tell the channel.
+ * turn back up — a responsibility run, a shared conversation or a routine run — then tell the channel.
  *
  * Moved out of index.ts verbatim. `notify` is taken as a function because index.ts assigns delivery
  * after this loop is created: the loop reads it when it runs, never when it is built.
@@ -34,7 +34,7 @@ export function createApprovalResumeTick(deps: {
   executeApprovedAction: ApprovalResumeDependencies["execute"];
   database: Database;
   responsibilityStore: ResponsibilityStore;
-  groupConversations: Pick<GroupConversations, "continueWaiting">;
+  conversations: Pick<Conversations, "continueWaiting">;
   approvalContinuationRunner: TurnRunner;
   channelStore: ChannelStore;
   actorFor: (ownerUserId: string) => Promise<AgentActor>;
@@ -50,7 +50,7 @@ export function createApprovalResumeTick(deps: {
     executeApprovedAction,
     database,
     responsibilityStore,
-    groupConversations,
+    conversations,
     approvalContinuationRunner,
     channelStore,
     actorFor,
@@ -167,21 +167,19 @@ export function createApprovalResumeTick(deps: {
                   ),
                 );
             };
-            // A group turn's approval also writes the resumed reply into the shared transcript.
+            // A shared channel turn's approval also writes the resumed reply into the transcript.
             let outcome: { replyText: string };
             try {
-              outcome = await groupConversations.continueWaiting(
-                approvalId,
-                () =>
-                  approvalContinuationRunner({
-                    ownerUserId: input.ownerUserId,
-                    routineId: "approval",
-                    agentId: request.action.botId,
-                    threadId: snapshot.threadId,
-                    instruction: "",
-                    initiator: snapshot.initiator ?? PERSON_INITIATOR,
-                    continuation: { snapshot, result, messageId },
-                  }),
+              outcome = await conversations.continueWaiting(approvalId, () =>
+                approvalContinuationRunner({
+                  ownerUserId: input.ownerUserId,
+                  routineId: "approval",
+                  agentId: request.action.botId,
+                  threadId: snapshot.threadId,
+                  instruction: "",
+                  initiator: snapshot.initiator ?? PERSON_INITIATOR,
+                  continuation: { snapshot, result, messageId },
+                }),
               );
             } catch (error) {
               /*

@@ -16,7 +16,6 @@ import {
   channelColour,
 } from "@/components/duet/channel-look";
 import { useSheetPresence } from "@/hooks/use-sheet-presence";
-import { appConfig } from "@/lib/generated/application-config";
 import {
   archiveDuetChannelMutationOptions,
   createDuetChannelMutationOptions,
@@ -34,6 +33,7 @@ import {
   NEW_CHANNEL_COLOUR,
   NEW_CHANNEL_ICON,
 } from "@/lib/duet-channels/queries";
+import { appConfig } from "@/lib/generated/application-config";
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/query-client";
 

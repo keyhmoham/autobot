@@ -17,7 +17,7 @@ import {
   parseApprovalContinuation,
 } from "../src/approvals/types";
 import type { AppVariables } from "../src/auth/guards";
-import { createComputerGateway } from "../src/computer/gateway";
+import { createComputerGateway, ownComputer } from "../src/computer/gateway";
 import { createHeadlessComputerTools } from "../src/computer/headless-tools";
 import { createDatabase } from "../src/db/client";
 import { auditEvents } from "../src/db/schema";
@@ -69,7 +69,7 @@ const gateway = createComputerGateway({
 const run = (snapshot: ApprovalContinuation, actorId: string, bot = botId) => {
   const tool = createHeadlessComputerTools({
     gateway,
-    botId: bot,
+    computer: ownComputer(bot),
     actor: { id: actorId, userId: actorId, initiator: { kind: "person" } },
   }).find((candidate) => candidate.definition.name === snapshot.toolName);
   if (!tool) throw new Error("no tool");

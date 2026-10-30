@@ -27,6 +27,7 @@ import {
   recordAuditEvent,
 } from "../audit";
 import { isConfiguredAdmin } from "../auth/roles";
+import { computerOwner } from "../computer/owner";
 import {
   type PolicyContext,
   type PolicyDecision,
@@ -43,6 +44,7 @@ import type { Database } from "../db/client";
 import { agentProfiles, agents, auditEvents } from "../db/schema";
 import { createOtelEventExporter, type EventExporter } from "../telemetry/otel";
 import { scrubCommand } from "../telemetry/scrub";
+import type { WebBotAuth } from "../web-bot-auth";
 import {
   type Capability,
   type CapabilityRow,
@@ -58,7 +60,6 @@ import {
   type EnterpriseStore,
   type NetworkPolicyRow,
 } from "./settings-store";
-import type { WebBotAuth } from "../web-bot-auth";
 
 /** Action Recording keeps 90 days, as Grok Bot's does. */
 export const ACTION_RECORD_RETENTION_DAYS = 90;
@@ -80,8 +81,8 @@ export type EnterpriseDeps = {
   computerToken?: string;
   /** Pushed to every computer with its policy; see `computer/policy-network.ts`. */
   webBotAuth?: WebBotAuth;
-  /** `provider/model` the built-in Bot runs on, for the model allowlist and usage view. */
-  builtInModel?: string;
+  /** The model built-in Bots think with now: the gateway's chat role, read when asked. */
+  builtInModel?: () => Promise<string | undefined>;
   /** Offboarding: ends sessions and deny-lists, and retires what a person granted. */
   people?: {
     revoke: (userId: string, by: string) => Promise<void>;
@@ -352,16 +353,16 @@ export async function installEnterpriseControls(
       ),
     );
 
+  /** Whose network rules a computer follows: whoever answers for it (computer/owner.ts). */
+  const ownerOfComputer = (computerId: string) =>
+    computerOwner(deps.database, computerId);
+
   const policyForBot = async (botId: string): Promise<EgressPolicy> => {
     const current = snapshot;
     if (!current) return { mode: "deny_all", rules: [] };
-    const [profile] = await deps.database
-      .select({ owner: agentProfiles.ownerUserId })
-      .from(agentProfiles)
-      .where(eq(agentProfiles.agentId, botId))
-      .limit(1);
-    const member: Member = profile?.owner
-      ? await store.member(profile.owner)
+    const owner = await ownerOfComputer(botId);
+    const member: Member = owner
+      ? await store.member(owner)
       : { role: "user", groups: [] };
     const cloudNetwork = resolveCapability(
       current.rows,
@@ -900,7 +901,9 @@ export async function headlessTurnRefusal(input: {
       .where(eq(agents.id, input.agentId))
       .limit(1);
     const model =
-      row?.type === "built_in" ? controls.deps.builtInModel : undefined;
+      row?.type === "built_in"
+        ? await controls.deps.builtInModel?.()
+        : undefined;
     if (!model || allowlist.models.includes(model)) return null;
     await controls.store
       .recordModelUsage({

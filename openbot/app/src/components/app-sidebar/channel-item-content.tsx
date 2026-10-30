@@ -1,5 +1,5 @@
-import { DuetIcon } from "@/components/duet/icons";
 import { ChannelAvatar } from "@/components/channels/avatar";
+import { DuetIcon } from "@/components/duet/icons";
 import type { MessageListEmphasis } from "@/lib/settings/message-list";
 
 /** Shared by live conversations and the appearance preference previews. */

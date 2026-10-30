@@ -4,6 +4,7 @@ import { StaleSnapshotError } from "../src/computer/client";
 import {
   ActionRefusedError,
   createComputerGateway,
+  ownComputer,
 } from "../src/computer/gateway";
 import type { ActionPolicy } from "../src/computer/policy";
 import type { SnapshotResult } from "../src/computer/schema";
@@ -116,7 +117,7 @@ describe("a ref outliving the computer that produced it", () => {
     let run = FIRST_RUN;
     const { gateway, rows } = stack(() => run);
 
-    const taken = await gateway.snapshot("bot-a");
+    const taken = await gateway.snapshot(ownComputer("bot-a"));
     expect(taken.snapshotId).toBe(7);
 
     // The supervisor replaces the container because the image tag moved. Generations start from one
@@ -124,7 +125,10 @@ describe("a ref outliving the computer that produced it", () => {
     run = SECOND_RUN;
 
     const first = await gateway
-      .click("bot-a", ACTOR, { ref: "e9", snapshotId: taken.snapshotId })
+      .click(ownComputer("bot-a"), ACTOR, {
+        ref: "e9",
+        snapshotId: taken.snapshotId,
+      })
       .catch((error: unknown) => error);
     expect(first).toBeInstanceOf(StaleSnapshotError);
 
@@ -134,7 +138,10 @@ describe("a ref outliving the computer that produced it", () => {
     );
 
     const second = await gateway
-      .click("bot-a", ACTOR, { ref: "e9", snapshotId: taken.snapshotId })
+      .click(ownComputer("bot-a"), ACTOR, {
+        ref: "e9",
+        snapshotId: taken.snapshotId,
+      })
       .catch((error: unknown) => error);
     expect(second).toBeInstanceOf(StaleSnapshotError);
   });
@@ -153,7 +160,7 @@ describe("a ref outliving the computer that produced it", () => {
     });
 
     const clicked = await gateway
-      .click("bot-c", ACTOR, { ref: "e9", snapshotId: 7 })
+      .click(ownComputer("bot-c"), ACTOR, { ref: "e9", snapshotId: 7 })
       .catch((error: unknown) => error);
     expect(clicked).toBeInstanceOf(StaleSnapshotError);
   });
@@ -169,11 +176,14 @@ describe("a ref outliving the computer that produced it", () => {
       allow: ["true"],
     });
 
-    const taken = await gateway.snapshot("bot-d");
+    const taken = await gateway.snapshot(ownComputer("bot-d"));
     run = SECOND_RUN;
 
     const clicked = await gateway
-      .click("bot-d", ACTOR, { ref: "e9", snapshotId: taken.snapshotId })
+      .click(ownComputer("bot-d"), ACTOR, {
+        ref: "e9",
+        snapshotId: taken.snapshotId,
+      })
       .catch((error: unknown) => error);
     expect(clicked).not.toBeInstanceOf(ActionRefusedError);
     expect(clicked).toBeInstanceOf(StaleSnapshotError);
@@ -201,8 +211,8 @@ describe("a ref outliving the computer that produced it", () => {
     // is what says the refusals above are about the run and not about the ordering itself.
     const { gateway, rows } = stack(() => FIRST_RUN);
 
-    const taken = await gateway.snapshot("bot-f");
-    const clicked = await gateway.click("bot-f", ACTOR, {
+    const taken = await gateway.snapshot(ownComputer("bot-f"));
+    const clicked = await gateway.click(ownComputer("bot-f"), ACTOR, {
       ref: "e9",
       snapshotId: taken.snapshotId,
     });

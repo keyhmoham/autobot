@@ -44,6 +44,7 @@ import { Separator } from "@/components/ui/separator";
 import { countLabel } from "@/lib/agents/bot-summaries";
 import type { AgentProfile } from "@/lib/agents/queries";
 import { currentUserQueryOptions } from "@/lib/auth/queries";
+import { appConfig } from "@/lib/generated/application-config";
 import {
   assignTeamBotMutationOptions,
   publishTeamBotMutationOptions,
@@ -53,7 +54,6 @@ import {
   unpublishTeamBotMutationOptions,
 } from "@/lib/team-bots";
 import { queryClient } from "@/query-client";
-import { appConfig } from "@/lib/generated/application-config";
 
 const list = (value: string) =>
   value

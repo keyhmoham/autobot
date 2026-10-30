@@ -71,3 +71,28 @@ export function readChannelHello(text: string): ChannelHello | null {
 export function describeChannelHello(hello: ChannelHello): string {
   return hello.name ? `New channel: ${hello.name}` : "New channel";
 }
+
+/**
+ * The hello a Bot says when it is in a channel somebody just opened in a room.
+ *
+ * Shorter than `CHANNEL_HELLO_FRAME`, because a shared channel's turn runs on the server with no
+ * screen to draw reply buttons on, and because the channel belongs to everybody in the room rather
+ * than to the person who opened it. Stored in the transcript as the opening prompt, which no client
+ * draws as anybody's message.
+ */
+export const SHARED_CHANNEL_HELLO_FRAME = [
+  "This is a new channel somebody just opened in a room, and this is its first turn. Nobody has written yet, and you speak first.",
+  "In one short message, say hello to the people here in a line that shows you read what the channel below is for, without repeating its purpose word for word, then offer up to three concrete things you could start on, each drawn from that purpose. End by asking which one they want first. Write nothing else, and do nothing else this turn.",
+] as const;
+
+export function frameSharedChannelHello(channel: ChannelHello): string {
+  return [
+    ...SHARED_CHANNEL_HELLO_FRAME,
+    "",
+    JSON.stringify(
+      { channel: channel.name, purpose: channel.purpose },
+      null,
+      2,
+    ),
+  ].join("\n");
+}

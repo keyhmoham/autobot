@@ -1,8 +1,8 @@
+import { MAX_IMAGE_BYTES } from "@openbot/shared/attachments";
 import type { Hono as HonoApp, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { serveStatic } from "hono/bun";
-import { MAX_IMAGE_BYTES } from "@openbot/shared/attachments";
 import { enterpriseControls } from "./admin/controls";
 import { createEnterpriseGate } from "./admin/gate";
 import { createEnterpriseAdminRoutes } from "./admin/routes";
@@ -25,15 +25,16 @@ import type { ApprovalService } from "./approvals/service";
 import {
   type AuditEventType,
   type AuditInitiator,
-  auditEventsToCsv,
   AuditQueryError,
   type AuditReader,
   type AuditStore,
+  auditEventsToCsv,
   auditQueryFromUrl,
   DEPLOYMENT_INITIATOR,
   readAuditExportRows,
   recordAuditEvent,
 } from "./audit";
+import { type AccessTokens, withAccessTokens } from "./auth/access-tokens";
 import { createDevRequireUser } from "./auth/dev-actor";
 import {
   type AppVariables,
@@ -49,8 +50,11 @@ import {
   createAttachmentRoutes,
   createChannelAttachmentRoutes,
 } from "./channels/attachments";
+import {
+  type Conversations,
+  createConversationRoutes,
+} from "./channels/conversation";
 import type { ChannelEventHub } from "./channels/events";
-import { createGroupRoutes, type GroupConversations } from "./channels/group";
 import { type ChannelStore, createChannelRoutes } from "./channels/routes";
 import type { ThreadIdentity } from "./channels/thread-identity";
 import { createThreadRoutes } from "./channels/thread-routes";
@@ -62,7 +66,10 @@ import type { ComponentStore } from "./components/store";
 import type { ComputerGateway } from "./computer/gateway";
 import type { PageFrameStore } from "./computer/page-frames";
 import type { PolicyStore } from "./computer/policy-store";
-import { createComputerRoutes } from "./computer/routes";
+import {
+  createComputerRoutes,
+  type SpaceComputerAccess,
+} from "./computer/routes";
 import { configuredAuthProviders, type DeploymentConfig } from "./config";
 import {
   type CredentialAdminService,
@@ -93,23 +100,6 @@ import {
 import type { MemoryIngestion } from "./memory/ingestion";
 import { createMemoryRoutes } from "./memory/routes";
 import type { MemoryStore } from "./memory/store";
-import { parsePageLimit } from "./paging";
-import { createPasswordRoutes, createSignInRoutes } from "./passwords/routes";
-import type { SignInService } from "./passwords/service";
-import type { OnboardingStore } from "./people/onboarding";
-import { MAX_PAGE, type PeopleStore } from "./people/store";
-import type { AccountModeSwitch } from "./plugins/account-mode";
-import type { ComposioBroker } from "./plugins/broker";
-import type { BrokerProvider } from "./plugins/access";
-import { createPluginRoutes } from "./plugins/routes";
-import { createSharedUseRoutes } from "./plugins/shared-use-routes";
-import type { SharedUseStore } from "./plugins/shared-use-store";
-import {
-  isDeploymentFault,
-  PluginRefusedError,
-  type PluginStore,
-} from "./plugins/store";
-import { REFUSAL_MARKER, vendorAnswer } from "./plugins/tools";
 import {
   createDuetChannelRoutes,
   type DuetChannelStore,
@@ -122,6 +112,23 @@ import {
   type TaskIntake,
   type TaskStore,
 } from "./openduet/task-store";
+import { parsePageLimit } from "./paging";
+import { createPasswordRoutes, createSignInRoutes } from "./passwords/routes";
+import type { SignInService } from "./passwords/service";
+import type { OnboardingStore } from "./people/onboarding";
+import { MAX_PAGE, type PeopleStore } from "./people/store";
+import type { BrokerProvider } from "./plugins/access";
+import type { AccountModeSwitch } from "./plugins/account-mode";
+import type { ComposioBroker } from "./plugins/broker";
+import { createPluginRoutes } from "./plugins/routes";
+import { createSharedUseRoutes } from "./plugins/shared-use-routes";
+import type { SharedUseStore } from "./plugins/shared-use-store";
+import {
+  isDeploymentFault,
+  PluginRefusedError,
+  type PluginStore,
+} from "./plugins/store";
+import { REFUSAL_MARKER, vendorAnswer } from "./plugins/tools";
 import type { ProactiveEngine } from "./proactive/engine";
 import { createProactiveRoutes } from "./proactive/routes";
 import type { ProactiveStore } from "./proactive/store";
@@ -446,7 +453,8 @@ export function createApp(
         emailRoutes: Hono | null;
       };
     };
-    groups?: GroupConversations;
+    /** Shared `room` and `direct` channels: their transcript and saying something in them. */
+    conversations?: Conversations;
     teamBots?: TeamBots;
     /** Pause, reset, Activity and attention for a person's own Bots. See agents/lifecycle.ts. */
     lifecycle?: BotLifecycleServices;
@@ -477,6 +485,21 @@ export function createApp(
   identity?: IdentityStore,
   /** The GitHub sign-in callback, built by the caller; mounted behind requireUser ahead of /api/identity. */
   identityGithubCallback?: Hono<{ Variables: AppVariables }>,
+  /**
+   * Whole modules that bring their own routes: the workspace, the model gateway, wallets and the rest.
+   * Each is handed the deployment's `requireUser` and answers with where its routes go, so adding one
+   * is one entry in the caller's list and nothing here. Mounted before the app's static catch-all.
+   */
+  modules: readonly ((
+    requireUser: MiddlewareHandler<{ Variables: AppVariables }>,
+  ) => readonly {
+    path: string;
+    routes: Hono<{ Variables: AppVariables }>;
+  }[])[] = [],
+  /** Who may watch, drive and manage a space's computer through the computer routes. */
+  spaceComputerAccess?: SpaceComputerAccess,
+  /** Personal access tokens, taken as a bearer wherever a signed-in person is (auth/access-tokens.ts). */
+  accessTokens?: AccessTokens,
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
   /*
@@ -659,11 +682,14 @@ export function createApp(
     context.json({ error: "No identity provider is configured." }, 503);
   // One administrator, when nothing is configured to sign anybody in. Checked first, and only ever
   // true when there is no provider, so a configured deployment cannot fall back to it.
-  const requireUser = config.singleUser
+  const requireSession = config.singleUser
     ? createDevRequireUser()
     : auth && roleRepository
       ? createRequireUser(auth, roleRepository)
       : authenticationUnavailable;
+  const requireUser = accessTokens
+    ? withAccessTokens(requireSession, accessTokens)
+    : requireSession;
   // Enterprise controls: capability switches and the model allowlist in front of the routes they
   // govern, the admin screen's API, and the SCIM verbs the GET/POST auth handler above does not take.
   app.use("/api/*", createEnterpriseGate(requireUser));
@@ -1433,6 +1459,7 @@ export function createApp(
         agentProfileStore ? computerAccessCheck(agentProfileStore) : canUseBot,
         pageFrames,
         auditReader,
+        spaceComputerAccess,
       ),
     );
   }
@@ -1653,8 +1680,11 @@ export function createApp(
       "/api/bots",
       createBotLifecycleRoutes(coworker.lifecycle, requireUser),
     );
-  if (coworker?.groups)
-    app.route("/api/groups", createGroupRoutes(coworker.groups, requireUser));
+  if (coworker?.conversations)
+    app.route(
+      "/api/conversations",
+      createConversationRoutes(coworker.conversations, requireUser),
+    );
   if (coworker?.teamBots)
     app.route(
       "/api/team-bots",
@@ -2027,6 +2057,10 @@ export function createApp(
    * Absent in development: Vite serves the app and proxies `/api` here, so `APP_DIST_DIR` is unset
    * and none of this mounts.
    */
+  for (const module of modules)
+    for (const mount of module(requireUser))
+      app.route(mount.path, mount.routes);
+
   if (config.appDistDir) {
     const root = config.appDistDir;
     app.use("/*", serveStatic({ root }));

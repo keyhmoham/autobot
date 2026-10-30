@@ -238,7 +238,9 @@ async function governRun(
   const allowlist = controls.snapshot()?.settings.modelAllowlist;
   const isAllowed = (model: string) =>
     !allowlist?.enabled || allowlist.models.includes(model);
-  const configured = builtIn ? controls.deps.builtInModel : undefined;
+  const configured = builtIn
+    ? await controls.deps.builtInModel?.().catch(() => undefined)
+    : undefined;
 
   const record = (
     model: string,

@@ -13,6 +13,7 @@ import { buildAGUITextResponse, LLMock } from "@copilotkit/aimock";
 import { AGUIMock } from "@copilotkit/aimock/agui";
 import { CopilotRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { z } from "zod";
 import {
   buildAgents,
@@ -20,8 +21,10 @@ import {
   type RuntimeModel,
 } from "../src/copilot";
 import type { Selection } from "../src/plugins/selection";
-import type { GrantedTool } from "@openbot/toolkit/granted-tool";
-import { createModelCompleter } from "../src/routing/model";
+import {
+  completerFromEnvironment,
+  modelsFromEnvironment,
+} from "./support/models";
 
 declare global {
   var __SRA009_AFTER_TOOL_SELECTION_RESTORE__:
@@ -256,10 +259,7 @@ const recorded: Selection<GrantedTool>[] = [];
 function selection(overrides: { floor?: number } = {}) {
   return {
     loadSkills: async () => skills,
-    choose: createModelCompleter({
-      model,
-      resolveApiKey: async () => "test-key",
-    }),
+    choose: completerFromEnvironment(model, "test-key"),
     record: async (_botId: string, entry: Selection<GrantedTool>) => {
       recorded.push(entry);
     },
@@ -369,7 +369,7 @@ describe("a built-in Bot", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -400,7 +400,7 @@ describe("a built-in Bot", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -429,7 +429,7 @@ describe("a built-in Bot", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -455,7 +455,7 @@ describe("a built-in Bot", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -478,7 +478,7 @@ describe("a built-in Bot", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -520,7 +520,7 @@ describe("a remote Bot", () => {
     const agents = await buildAgents(
       [remoteAgent()],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -554,7 +554,7 @@ describe("a remote Bot", () => {
     const agents = await buildAgents(
       [remoteAgent()],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       () => "signed-assertion",
@@ -642,7 +642,7 @@ describe("a remote Mastra Bot", () => {
         const agents = await buildAgents(
           [mastraAgent()],
           model,
-          "test-key",
+          modelsFromEnvironment(model, "test-key"),
           undefined,
           async () => (withGrants ? granted : []),
           () => runAssertion ?? undefined,
@@ -877,7 +877,7 @@ describe("when selection cannot help", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => few,
       undefined,
@@ -907,7 +907,7 @@ describe("when selection cannot help", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -938,7 +938,7 @@ describe("when selection cannot help", () => {
       const agents = await buildAgents(
         [builtIn],
         model,
-        "test-key",
+        modelsFromEnvironment(model, "test-key"),
         undefined,
         async () => granted,
         undefined,
@@ -976,7 +976,7 @@ describe("the discovery record", () => {
     const agents = await buildAgents(
       [builtIn],
       model,
-      "test-key",
+      modelsFromEnvironment(model, "test-key"),
       undefined,
       async () => granted,
       undefined,
@@ -1001,7 +1001,7 @@ describe("the discovery record", () => {
       const agents = await buildAgents(
         [builtIn],
         model,
-        "test-key",
+        modelsFromEnvironment(model, "test-key"),
         undefined,
         async () => granted,
         undefined,
@@ -1009,10 +1009,7 @@ describe("the discovery record", () => {
         undefined,
         {
           loadSkills: async () => skills,
-          choose: createModelCompleter({
-            model,
-            resolveApiKey: async () => "test-key",
-          }),
+          choose: completerFromEnvironment(model, "test-key"),
           record: async () => {
             throw new Error(
               "audit table is gone at postgres://fixture:secret@localhost/private",
@@ -1050,7 +1047,7 @@ describe("the discovery record", () => {
       const agents = await buildAgents(
         [builtIn],
         model,
-        "test-key",
+        modelsFromEnvironment(model, "test-key"),
         undefined,
         async () => granted,
         undefined,
@@ -1074,7 +1071,7 @@ describe("the discovery record", () => {
       const agents = await buildAgents(
         [builtIn],
         model,
-        "test-key",
+        modelsFromEnvironment(model, "test-key"),
         undefined,
         async () => granted,
         undefined,
@@ -1082,10 +1079,7 @@ describe("the discovery record", () => {
         undefined,
         {
           loadSkills: async () => skills,
-          choose: createModelCompleter({
-            model,
-            resolveApiKey: async () => "test-key",
-          }),
+          choose: completerFromEnvironment(model, "test-key"),
         },
       );
       await ask(agents.analyst as never, "read the Drive doc");

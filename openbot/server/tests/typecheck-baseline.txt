@@ -136,7 +136,6 @@ server/tests/enterprise-controls.integration.test.ts: error TS2345: Argument of 
 server/tests/enterprise-controls.integration.test.ts: error TS2769: No overload matches this call.
 server/tests/google-drive-rest.test.ts: error TS2345: Argument of type '{ provenance: string; url: string; }' is not assignable to parameter of type '{ provenance: string; url: string; authScheme: string | null; accountMode?: string | null | undefined; }'.
 server/tests/google-drive-rest.test.ts: error TS2345: Argument of type '{ provenance: string; url: string; }' is not assignable to parameter of type '{ provenance: string; url: string; authScheme: string | null; accountMode?: string | null | undefined; }'.
-server/tests/group-conversations.integration.test.ts: error TS2339: Property 'serverId' does not exist on type 'object'.
 server/tests/headless-components.integration.test.ts: error TS2352: Conversion of type 'BaseEvent' to type '{ delta: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 server/tests/headless-components.integration.test.ts: error TS2741: Property 'preconnect' is missing in type '(url: URL | RequestInfo, init: RequestInit | BunFetchRequestInit | undefined) => Promise<Response>' but required in type 'typeof fetch'.
 server/tests/headless-components.integration.test.ts: error TS6142: Module '../../app/src/components/gallery/charts' was resolved to 'app/src/components/gallery/charts.tsx', but '--jsx' is not set.
@@ -247,8 +246,6 @@ server/tests/voice-routes.test.ts: error TS2741: Property 'pinned' is missing in
 server/tests/voice-session-preview.integration.test.ts: error TS2769: No overload matches this call.
 server/tests/voice-session-routes.test.ts: error TS2739: Type 'Response & TypedResponse<{ error: string; }, 401, "json">' is missing the following properties from type 'Promise<void | Response>': then, catch, finally, [Symbol.toStringTag]
 server/tests/voice-session-store.integration.test.ts: error TS2345: Argument of type '`page-${string}`' is not assignable to parameter of type '`${string}-${string}-${string}-${string}-${string}`'.
-server/tests/voice-sessions.test.ts: error TS2741: Property 'preconnect' is missing in type '() => Promise<Response>' but required in type 'typeof fetch'.
-server/tests/voice-sessions.test.ts: error TS2741: Property 'preconnect' is missing in type '(_url: URL | RequestInfo, init: RequestInit | BunFetchRequestInit | undefined) => Promise<Response>' but required in type 'typeof fetch'.
 server/tests/web-research.test.ts: error TS2339: Property 'get' does not exist on type 'never'.
 server/tests/web-research.test.ts: error TS2339: Property 'get' does not exist on type 'never'.
 server/tests/web-research.test.ts: error TS2339: Property 'get' does not exist on type 'never'.

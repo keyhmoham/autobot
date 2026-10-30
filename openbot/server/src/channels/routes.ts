@@ -32,7 +32,6 @@ import type { AgentActor, AgentProfile } from "../agents/profile-types";
 import { type AuditStore, recordAuditEvent } from "../audit";
 import type { AppVariables } from "../auth/guards";
 import type { Database } from "../db/client";
-import { parsePageLimit } from "../paging";
 import {
   agentProfiles,
   channelAgents,
@@ -43,15 +42,16 @@ import {
   openduetTasks,
   workItems,
 } from "../db/schema";
+import { parsePageLimit } from "../paging";
+import { replyEnding } from "../proactive/engine";
+import { WORK_OFFERED_TOPIC } from "../work/queue";
 import type { ChannelActivityEvent, ChannelEventHub } from "./events";
+import { FIRST_DAY_KIND } from "./first-day";
+import { briefDate, MORNING_BRIEF_KIND } from "./morning-brief";
 import {
   announceChannelActivity,
   MAX_CHANNEL_EVENT_TEXT_BYTES,
 } from "./notifications";
-import { replyEnding } from "../proactive/engine";
-import { WORK_OFFERED_TOPIC } from "../work/queue";
-import { FIRST_DAY_KIND } from "./first-day";
-import { briefDate, MORNING_BRIEF_KIND } from "./morning-brief";
 import { upgradeWebSocket } from "./socket";
 import { oneLine } from "./text";
 import type { ThreadIdentity } from "./thread-identity";
@@ -1139,8 +1139,26 @@ export function createChannelStore(
       busy,
       runId = `legacy:${actor.id}`,
     ) {
-      const channel = await store.get(actor, channelId);
-      if (!channel) throw new ChannelNotFoundError(channelId);
+      // Membership rather than `get`, which reads a person's own conversation through its thread
+      // mapping: a shared channel has none, and its members say they are busy in it too.
+      const [member] = await database
+        .select({ channelId: channelMemberships.channelId })
+        .from(channelMemberships)
+        .innerJoin(
+          channels,
+          and(
+            eq(channels.id, channelMemberships.channelId),
+            isNull(channels.deletedAt),
+          ),
+        )
+        .where(
+          and(
+            eq(channelMemberships.channelId, channelId),
+            eq(channelMemberships.userId, actor.id),
+          ),
+        )
+        .limit(1);
+      if (!member) throw new ChannelNotFoundError(channelId);
       await announceBusy(channelId, busy, runId);
     },
   };

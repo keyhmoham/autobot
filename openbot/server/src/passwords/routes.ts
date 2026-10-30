@@ -1,7 +1,7 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import type { BotAccessCheck } from "../agents/profile-policy";
 import type { AppVariables } from "../auth/guards";
-import type { ActionActor } from "../computer/gateway";
+import { type ActionActor, ownComputer } from "../computer/gateway";
 import type { SignInService } from "./service";
 import { SignInRefusedError } from "./types";
 
@@ -78,7 +78,7 @@ export function createSignInRoutes(
       throw new SignInRefusedError("There is no such Bot.", 404);
     const request = await service.request({
       ownerUserId: context.var.actor.id,
-      botId,
+      computer: ownComputer(botId),
       site: field(body, "site", { required: true, max: 2048 }) as string,
       reason: field(body, "reason", { max: 500 }),
       actor: actorOf(context),

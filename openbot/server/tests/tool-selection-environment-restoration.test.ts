@@ -14,7 +14,7 @@ const targetTestPath = fileURLToPath(
   new URL("./tool-selection.integration.test.ts", import.meta.url),
 );
 const modelModulePath = fileURLToPath(
-  new URL("../src/routing/model.ts", import.meta.url),
+  new URL("./support/models.ts", import.meta.url),
 );
 
 type ProofMode = "present" | "absent" | "teardown-error" | "setup-error";

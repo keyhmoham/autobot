@@ -49,6 +49,7 @@ import {
   SENSITIVE_FIELD_SELECTOR,
   sensitiveRefs,
 } from "./secret-masking";
+import { createServices, SERVICE_NAME, ServiceRequestError } from "./services";
 import { type BotSession, createSessions } from "./sessions";
 import { createShell } from "./shell";
 import {
@@ -288,6 +289,10 @@ const profiles = createProfiles(
 // Rooted in the same workspace the file tools use, so a command and a written file see one
 // directory rather than two.
 const shell = createShell(process.env.WORKSPACE_DIR?.trim() || "/workspace");
+// The apps Bots build here, kept running across turns and restored after a restart: see services.ts.
+const services = createServices(
+  process.env.WORKSPACE_DIR?.trim() || "/workspace",
+);
 
 /**
  * The id normally arrives as a header on every request. This is the fallback for a caller that has no
@@ -1261,6 +1266,64 @@ serve<StreamData>({
        * wrote the audit row before this was called. Refusing again here would be a second, quieter
        * policy nobody configured.
        */
+      /*
+       * Services: the web apps a space's Bots build, running past the turn that started them.
+       *
+       * Outside the control wheel on purpose. A service is not the Bot acting on the browser a person
+       * may have taken over; it is a program in the workspace, and viewing one (the `/http/` route)
+       * is what the people the app was built for do while a Bot is doing anything else.
+       */
+      if (
+        url.pathname === "/services" ||
+        url.pathname.startsWith("/services/")
+      ) {
+        if (!RUNTIME.allowExec)
+          return json({ error: "Apps cannot run on local Chrome." }, 403);
+        const [, , name, part] = url.pathname.split("/");
+        try {
+          if (!name) {
+            if (request.method === "GET")
+              return json({ services: await services.list() });
+            if (request.method === "PUT")
+              return json({
+                service: await services.start(
+                  await request.json().catch(() => null),
+                ),
+              });
+            return json({ error: "Not found." }, 404);
+          }
+          if (!SERVICE_NAME.test(name))
+            return json({ error: "Not found." }, 404);
+          if (!part && request.method === "DELETE")
+            return json({ stopped: await services.stop(name) });
+          if (part === "logs" && request.method === "GET") {
+            const lines = services.logs(
+              name,
+              Number(url.searchParams.get("lines") ?? 200),
+            );
+            return lines
+              ? json({ lines })
+              : json({ error: "No such app." }, 404);
+          }
+          if (part === "http") {
+            const prefix = `/services/${name}/http`;
+            return await services.forward(
+              name,
+              `${url.pathname.slice(prefix.length) || "/"}${url.search}`,
+              request,
+            );
+          }
+          return json({ error: "Not found." }, 404);
+        } catch (error) {
+          if (error instanceof ServiceRequestError)
+            return json({ error: error.message }, 400);
+          return json(
+            { error: describe(error, "The app could not be started.") },
+            500,
+          );
+        }
+      }
+
       if (url.pathname === "/exec" && request.method === "POST") {
         if (!RUNTIME.allowExec)
           return json(
@@ -1650,6 +1713,7 @@ function fileStatus(error: unknown): 400 | 403 | 404 | 413 | 500 {
 }
 
 console.info(`agent-computer listening on http://127.0.0.1:${PORT}`);
+if (RUNTIME.allowExec) void services.restore();
 
 /**
  * Hand the profile back before dying.
@@ -1669,6 +1733,8 @@ async function shutDown(reason: string, exitCode: number): Promise<void> {
   shuttingDown = true;
   console.info(`${reason}: closing the browser so its profile is flushed`);
   await profiles.closeAll();
+  // Stopped, not forgotten: the workspace still holds their definitions for the next start.
+  await services.shutdown();
   await VIRTUAL_DISPLAY?.stop();
   process.exit(exitCode);
 }

@@ -15,6 +15,7 @@ import { type PointerEvent, useEffect, useRef, useState } from "react";
 import { useConversationSend } from "@/components/channels/conversation-send";
 import { NewTaskSheet } from "@/components/shell/new-task-sheet";
 import { agentListQueryOptions } from "@/lib/agents/queries";
+import { DURATION, EASE_OUT } from "@/lib/motion";
 import {
   checkPageMutationOptions,
   deletePageMutationOptions,
@@ -26,7 +27,6 @@ import {
   slidesOf,
 } from "@/lib/pages/queries";
 import { pageThemeStyle } from "@/lib/pages/theme";
-import { DURATION, EASE_OUT } from "@/lib/motion";
 import { useReducedMotionPreference } from "@/lib/reduced-motion";
 import { searchText } from "@/lib/search-text";
 import { startTaskMutationOptions } from "@/lib/tasks/mutations";

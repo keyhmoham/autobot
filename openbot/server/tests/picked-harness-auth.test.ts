@@ -12,6 +12,7 @@ import { encryptSecret } from "../src/credentials";
 import { createDatabase } from "../src/db/client";
 import { loadTenantPackage } from "../src/tenant-package";
 import { testEnvironment } from "./support/environment";
+import { noModel } from "./support/models";
 
 const fixtureToken = "synthetic-deployment-token";
 const encryptionKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
@@ -248,7 +249,7 @@ async function runPicked(options: {
     const agents = await buildAgents(
       loaded,
       { provider: "openai", defaultModel: "unused" },
-      null,
+      noModel,
     );
     const agent = agents["picked-harness"];
     if (!agent)

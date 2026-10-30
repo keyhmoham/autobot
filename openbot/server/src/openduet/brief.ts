@@ -1,7 +1,7 @@
 import { MORNING_BRIEF_TOOL } from "@openbot/shared/morning-brief";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
-import type { AuditInitiator } from "../audit";
 import { z } from "zod";
+import type { AuditInitiator } from "../audit";
 import {
   type Complete,
   type TriageMessage,

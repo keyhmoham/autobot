@@ -1,14 +1,14 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
 import { CHECK_IN_FRAME, frameCheckIn } from "@openbot/shared/check-in";
-import { frameTaskBrief, TASK_FRAME } from "@openbot/shared/task-brief";
 import { FIRST_DAY_FRAME, frameFirstDay } from "@openbot/shared/first-day";
 import {
   frameMorningBrief,
   MORNING_BRIEF_FRAME,
 } from "@openbot/shared/morning-brief";
 import { FIRING_FRAME, frameFiring } from "@openbot/shared/routine-firing";
+import { frameTaskBrief, TASK_FRAME } from "@openbot/shared/task-brief";
+import { eq } from "drizzle-orm";
 import { createAgentProfileStore } from "../src/agents/profile-store";
 import type { AgentActor } from "../src/agents/profile-types";
 import {

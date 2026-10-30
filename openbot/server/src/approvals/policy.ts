@@ -171,7 +171,7 @@ export function requestOf(messages: readonly Message[] | undefined): string {
 }
 
 export type ReviewVerdict = NonNullable<ApprovalPolicyOutcome["review"]>;
-/** One model call returning text. The deployment's configured model, via `createModelCompleter`. */
+/** One model call returning text: the deployment's decision model, through the model gateway. */
 export type ReviewModel = (
   prompt: string,
   signal?: AbortSignal,

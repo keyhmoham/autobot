@@ -7,6 +7,7 @@ import {
   planModelForEnvironment,
 } from "../src/agents/plan-model";
 import { buildAgents } from "../src/copilot";
+import { modelsFromEnvironment, noModel } from "./support/models";
 
 test("a plan-only built-in keeps its identity and instructions", async () => {
   const requests: Record<string, unknown>[] = [];
@@ -53,7 +54,7 @@ test("a plan-only built-in keeps its identity and instructions", async () => {
           token: "deployment-test-token",
         },
       },
-      null,
+      noModel,
     );
     const agent = agents.knowledge.clone();
     agent.setMessages([
@@ -266,7 +267,11 @@ test("the original built-in executes its granted tool and sends the actual match
           token: "owned-token",
         },
       },
-      "stale-api-key-must-not-be-used",
+      // A model a plan must never fall back to: the plan answers without the gateway.
+      modelsFromEnvironment(
+        { provider: "openai", defaultModel: "unused" },
+        "stale-api-key-must-not-be-used",
+      ),
       undefined,
       async (id) => [
         {

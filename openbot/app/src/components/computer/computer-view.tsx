@@ -3,13 +3,13 @@ import { createPortal } from "react-dom";
 import { DuetIcon } from "@/components/duet/icons";
 import { Tile } from "@/components/duet/kit";
 import { supplySecret } from "@/lib/computers/control";
-import { appConfig } from "@/lib/generated/application-config";
 import {
   readPageFrame,
   readScreenshot,
   type Screenshot,
 } from "@/lib/computers/screen";
 import { useComputerControl } from "@/lib/computers/use-control";
+import { appConfig } from "@/lib/generated/application-config";
 import { ChannelAvatar } from "../channels/avatar";
 import { ComputerControlButton } from "./computer-controls";
 import { DemonstrationRecorder } from "./demonstration-recorder";
